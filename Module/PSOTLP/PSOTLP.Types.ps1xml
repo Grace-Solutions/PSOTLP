@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Types>
+  <Type>
+    <Name>PSOTLP.Connections.OTLPConnection</Name>
+    <Members>
+      <ScriptProperty>
+        <Name>DisplayName</Name>
+        <GetScriptBlock>
+          if ($this.ServiceName) { $this.ServiceName } else { 'PSOTLP' }
+        </GetScriptBlock>
+      </ScriptProperty>
+    </Members>
+  </Type>
+  <Type>
+    <Name>PSOTLP.Sessions.OTLPSession</Name>
+    <Members>
+      <ScriptProperty>
+        <Name>DurationSeconds</Name>
+        <GetScriptBlock>
+          if ($this.StoppedAtUtc) {
+              ($this.StoppedAtUtc - $this.StartedAtUtc).TotalSeconds
+          } else {
+              ([System.DateTimeOffset]::UtcNow - $this.StartedAtUtc).TotalSeconds
+          }
+        </GetScriptBlock>
+      </ScriptProperty>
+    </Members>
+  </Type>
+</Types>

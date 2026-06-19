@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>PSOTLP</AssemblyName>
+    <RootNamespace>PSOTLP</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591;CS1591;NU1701</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Description>OpenTelemetry Protocol (OTLP) emitter for PowerShell.</Description>
+    <Authors>Grace Solutions</Authors>
+    <Company>Grace Solutions</Company>
+    <Copyright>(c) Grace Solutions. All rights reserved.</Copyright>
+    <Product>PSOTLP</Product>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <!-- Version values are injected by build.ps1; defaults here are placeholders for ad-hoc dotnet build runs. -->
+    <Version>0.0.0.0</Version>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <FileVersion>0.0.0.0</FileVersion>
+    <InformationalVersion>0.0.0.0+local</InformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Management" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="CommitHash" Value="$(CommitHash)" Condition=" '$(CommitHash)' != '' " />
+  </ItemGroup>
+
+</Project>

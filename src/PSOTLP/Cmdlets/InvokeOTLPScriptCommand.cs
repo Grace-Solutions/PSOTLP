@@ -1,0 +1,122 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using PSOTLP.Common;
+using PSOTLP.Connections;
+using PSOTLP.Exporters;
+using PSOTLP.Models;
+using PSOTLP.Redaction;
+using PSOTLP.Sessions;
+
+namespace PSOTLP.Cmdlets
+{
+    /// <summary>
+    /// Executes a script block in a controlled runspace, tapping every PowerShell stream via
+    /// PSDataCollection events. Captured records are queued and drained to the OTLP log exporter.
+    /// Synchronous: uses PowerShell.Invoke() and Thread-Sleep loops only.
+    /// </summary>
+    [Cmdlet(VerbsLifecycle.Invoke, "OTLPScript")]
+    [OutputType(typeof(PSObject))]
+    public sealed class InvokeOTLPScriptCommand : OTLPCmdletBase
+    {
+        [Parameter(Mandatory = true, Position = 0)]
+        public ScriptBlock ScriptBlock { get; set; }
+
+        [Parameter] public object[] ArgumentList { get; set; }
+        [Parameter] public string SessionName { get; set; }
+        [Parameter] public string ServiceName { get; set; }
+        [Parameter] public IDictionary Attribute { get; set; }
+        [Parameter] [ValidateRange(1, 10000)] public int BatchSize { get; set; } = 100;
+        [Parameter] public SwitchParameter PassThru { get; set; }
+
+        protected override void ProcessRecord()
+        {
+            try
+            {
+                var connection = OTLPSessionManager.RequireCurrentConnection();
+                var session = new OTLPSession
+                {
+                    SessionId = Guid.NewGuid(),
+                    SessionName = string.IsNullOrWhiteSpace(SessionName) ? "PSOTLPScript-" + DateTimeOffset.UtcNow.ToString("yyyyMMddTHHmmssZ") : SessionName,
+                    ServiceName = string.IsNullOrWhiteSpace(ServiceName) ? connection.ServiceName : ServiceName,
+                    CaptureMode = OTLPSessionCaptureMode.HostedScript,
+                    StartedAtUtc = DateTimeOffset.UtcNow,
+                    IsActive = true
+                };
+
+                var queue = new OTLPSessionQueue(100000, OTLPSessionDropPolicy.DropOldest);
+                var redaction = new OTLPRedactionEngine();
+                var attributes = HashtableToDictionary(Attribute);
+
+                WriteVerboseLine("Invoking OTLP-captured script (sessionId=" + session.SessionId + "). Please Wait...");
+                var output = ExecuteScript(session, queue, redaction, attributes);
+                FlushQueue(connection, queue, session);
+
+                if (PassThru.IsPresent && output != null)
+                {
+                    foreach (var item in output) { WriteObject(item); }
+                }
+
+                WriteVerboseLine("OTLP script invocation was successful (records captured=" + session.RecordsCaptured + ", exported=" + session.RecordsExported + ").");
+            }
+            catch (Exception ex)
+            {
+                HandleException("InvokeScript", ex);
+            }
+        }
+
+        private System.Collections.ObjectModel.Collection<PSObject> ExecuteScript(OTLPSession session, OTLPSessionQueue queue, OTLPRedactionEngine redaction, IDictionary<string, object> attributes)
+        {
+            using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
+            {
+                runspace.Open();
+                using (var ps = PowerShell.Create())
+                {
+                    ps.Runspace = runspace;
+                    var streamHook = new OTLPStreamHook(queue, redaction, session, attributes);
+                    streamHook.Attach(ps);
+
+                    ps.AddScript(ScriptBlock.ToString());
+                    if (ArgumentList != null) { foreach (var arg in ArgumentList) { ps.AddArgument(arg); } }
+
+                    var results = ps.Invoke();
+
+                    streamHook.Detach(ps);
+                    streamHook.DrainOutput(results);
+
+                    if (ps.HadErrors)
+                    {
+                        foreach (var err in ps.Streams.Error) { streamHook.HandleError(err); }
+                    }
+                    return results;
+                }
+            }
+        }
+
+        private void FlushQueue(OTLPConnection connection, OTLPSessionQueue queue, OTLPSession session)
+        {
+            if (queue.Count == 0) { return; }
+            var exporter = OTLPSessionService.BuildDefaultExporter(Logger);
+            while (queue.Count > 0)
+            {
+                var batch = queue.DrainBatch(BatchSize);
+                if (batch.Count == 0) { break; }
+                try { exporter.Export(connection, batch); session.RecordsExported += batch.Count; }
+                catch (Exception ex) { WriteWarningLine("OTLP script batch export failed: " + ex.Message); break; }
+            }
+            session.RecordsDropped = queue.Dropped;
+            session.StoppedAtUtc = DateTimeOffset.UtcNow;
+            session.IsActive = false;
+        }
+
+        private static IDictionary<string, object> HashtableToDictionary(IDictionary source)
+        {
+            if (source == null) { return null; }
+            var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in source) { if (entry.Key != null) { result[entry.Key.ToString()] = entry.Value; } }
+            return result;
+        }
+    }
+}
