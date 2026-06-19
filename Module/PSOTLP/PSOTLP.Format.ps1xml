@@ -34,39 +34,6 @@
     </View>
 
     <View>
-      <Name>PSOTLP.Sessions.OTLPSession</Name>
-      <ViewSelectedBy>
-        <TypeName>PSOTLP.Sessions.OTLPSession</TypeName>
-      </ViewSelectedBy>
-      <TableControl>
-        <TableHeaders>
-          <TableColumnHeader><Label>SessionName</Label></TableColumnHeader>
-          <TableColumnHeader><Label>ServiceName</Label></TableColumnHeader>
-          <TableColumnHeader><Label>CaptureMode</Label></TableColumnHeader>
-          <TableColumnHeader><Label>StartedAtUtc</Label></TableColumnHeader>
-          <TableColumnHeader><Label>RecordsCaptured</Label></TableColumnHeader>
-          <TableColumnHeader><Label>RecordsExported</Label></TableColumnHeader>
-          <TableColumnHeader><Label>RecordsDropped</Label></TableColumnHeader>
-          <TableColumnHeader><Label>IsActive</Label></TableColumnHeader>
-        </TableHeaders>
-        <TableRowEntries>
-          <TableRowEntry>
-            <TableColumnItems>
-              <TableColumnItem><PropertyName>SessionName</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>ServiceName</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>CaptureMode</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>StartedAtUtc</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>RecordsCaptured</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>RecordsExported</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>RecordsDropped</PropertyName></TableColumnItem>
-              <TableColumnItem><PropertyName>IsActive</PropertyName></TableColumnItem>
-            </TableColumnItems>
-          </TableRowEntry>
-        </TableRowEntries>
-      </TableControl>
-    </View>
-
-    <View>
       <Name>PSOTLP.Exporters.OTLPExportResult</Name>
       <ViewSelectedBy>
         <TypeName>PSOTLP.Exporters.OTLPExportResult</TypeName>

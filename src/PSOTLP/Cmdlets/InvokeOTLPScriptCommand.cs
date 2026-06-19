@@ -6,8 +6,10 @@ using System.Management.Automation.Runspaces;
 using PSOTLP.Common;
 using PSOTLP.Connections;
 using PSOTLP.Exporters;
+using PSOTLP.Http;
 using PSOTLP.Models;
 using PSOTLP.Redaction;
+using PSOTLP.Serialization;
 using PSOTLP.Sessions;
 
 namespace PSOTLP.Cmdlets
@@ -41,13 +43,12 @@ namespace PSOTLP.Cmdlets
                     SessionId = Guid.NewGuid(),
                     SessionName = string.IsNullOrWhiteSpace(SessionName) ? "PSOTLPScript-" + DateTimeOffset.UtcNow.ToString("yyyyMMddTHHmmssZ") : SessionName,
                     ServiceName = string.IsNullOrWhiteSpace(ServiceName) ? connection.ServiceName : ServiceName,
-                    CaptureMode = OTLPSessionCaptureMode.HostedScript,
                     StartedAtUtc = DateTimeOffset.UtcNow,
                     IsActive = true
                 };
 
                 var queue = new OTLPSessionQueue(100000, OTLPSessionDropPolicy.DropOldest);
-                var redaction = new OTLPRedactionEngine();
+                var redaction = new OTLPRedactionEngine(connection.RedactPatterns);
                 var attributes = HashtableToDictionary(Attribute);
 
                 WriteVerboseLine("Invoking OTLP-captured script (sessionId=" + session.SessionId + "). Please Wait...");
@@ -98,7 +99,7 @@ namespace PSOTLP.Cmdlets
         private void FlushQueue(OTLPConnection connection, OTLPSessionQueue queue, OTLPSession session)
         {
             if (queue.Count == 0) { return; }
-            var exporter = OTLPSessionService.BuildDefaultExporter(Logger);
+            var exporter = BuildExporter(connection);
             while (queue.Count > 0)
             {
                 var batch = queue.DrainBatch(BatchSize);
@@ -109,6 +110,14 @@ namespace PSOTLP.Cmdlets
             session.RecordsDropped = queue.Dropped;
             session.StoppedAtUtc = DateTimeOffset.UtcNow;
             session.IsActive = false;
+        }
+
+        private IOTLPLogExporter BuildExporter(OTLPConnection connection)
+        {
+            var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
+            var serializer = new OTLPJsonSerializer();
+            var redaction = new OTLPRedactionEngine(connection != null ? connection.RedactPatterns : null);
+            return new OTLPLogExporter(http, serializer, redaction, Logger);
         }
 
         private static IDictionary<string, object> HashtableToDictionary(IDictionary source)

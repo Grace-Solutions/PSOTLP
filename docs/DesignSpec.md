@@ -33,9 +33,6 @@ Connect-OTLP
 Disconnect-OTLP
 Get-OTLPConnection
 Write-OTLPLog
-Start-OTLPSession
-Stop-OTLPSession
-Get-OTLPSession
 Send-OTLPLogBatch
 Invoke-OTLPScript
 ```
@@ -73,33 +70,25 @@ OTLP/gRPC
 
 `PSOTLP` should allow PowerShell users to emit structured telemetry without rewriting every script, function, module, or CLI call.
 
-The main user experience should be similar to a transcript workflow:
+The main user experience is connection-scoped explicit logging and on-demand script capture:
 
 ```powershell
-Connect-OTLP -EndpointUri 'https://otel.example.com' -Header @{ Authorization = 'Bearer token' }
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Header @{ Authorization = (ConvertTo-SecureString 'Bearer token' -AsPlainText -Force) }
 
-Start-OTLPSession -ServiceName 'powershell-session' -SessionName 'CloudInit-Bootstrap'
-
-# Normal script activity happens here.
-# Output, verbose, warning, error, and selected host/session activity are captured.
-
-Stop-OTLPSession
-Disconnect-OTLP
-```
-
-The module should also support explicit structured logging:
-
-```powershell
 Write-OTLPLog -Body 'Starting device onboarding' -Severity Information -Attribute @{ Phase = 'PreExecution'; Customer = 'Personal' }
-```
 
-And script execution with stronger capture:
-
-```powershell
 Invoke-OTLPScript -ScriptBlock {
     Get-Service
     Write-Verbose 'Service query completed'
 } -ServiceName 'powershell-script' -SessionName 'ServiceAudit' -Verbose
+
+Disconnect-OTLP
+```
+
+The module also supports explicit structured batches:
+
+```powershell
+$records | Send-OTLPLogBatch
 ```
 
 ---
@@ -154,9 +143,7 @@ Request retry logic
 Header sanitization
 Payload serialization
 Payload compression
-Session state management
 Stream capture mapping
-Transcript tailing
 Queue management
 Batching
 Redaction
@@ -180,9 +167,6 @@ Connect-OTLP
 Disconnect-OTLP
 Get-OTLPConnection
 Write-OTLPLog
-Start-OTLPSession
-Stop-OTLPSession
-Get-OTLPSession
 Send-OTLPLogBatch
 Invoke-OTLPScript
 ```
@@ -383,9 +367,6 @@ PSOTLP/
 │   ├── Disconnect-OTLP.md
 │   ├── Get-OTLPConnection.md
 │   ├── Write-OTLPLog.md
-│   ├── Start-OTLPSession.md
-│   ├── Stop-OTLPSession.md
-│   ├── Get-OTLPSession.md
 │   ├── Send-OTLPLogBatch.md
 │   └── Invoke-OTLPScript.md
 ├── src/
@@ -406,8 +387,7 @@ PSOTLP/
 │   │   ├── Serialization/
 │   │   ├── Sessions/
 │   │   ├── Signals/
-│   │   ├── Streams/
-│   │   └── Transcripts/
+│   │   └── Streams/
 │   └── PSOTLP.Tests/
 ├── build.ps1
 ├── CHANGELOG.md
@@ -428,7 +408,6 @@ PSOTLP.Exporters
 PSOTLP.Redaction
 PSOTLP.Sessions
 PSOTLP.Streams
-PSOTLP.Transcripts
 ```
 
 ---
@@ -457,9 +436,6 @@ Required shape:
         'Disconnect-OTLP',
         'Get-OTLPConnection',
         'Write-OTLPLog',
-        'Start-OTLPSession',
-        'Stop-OTLPSession',
-        'Get-OTLPSession',
         'Send-OTLPLogBatch',
         'Invoke-OTLPScript'
     )
@@ -668,7 +644,6 @@ Never log bearer tokens.
 Never log API keys.
 Never log sensitive telemetry attributes.
 Never log raw telemetry payloads by default.
-Never log raw transcript lines if redaction rules are enabled.
 ```
 
 ## 11.2 PowerShell Channels
@@ -698,7 +673,6 @@ OTLPHttpException
 OTLPSerializationException
 OTLPExportException
 OTLPSessionException
-OTLPTranscriptException
 OTLPStreamCaptureException
 OTLPRedactionException
 OTLPErrorDetails
@@ -1142,39 +1116,17 @@ powershell.session.id
 powershell.session.name
 ```
 
-For transcript/file-tail capture, also include when available:
-
-```text
-log.file.name
-log.file.path
-log.iostream
-```
-
 ---
 
 ## 21. Session Capture Strategy
 
-## 21.1 Primary Session Mode
+The module captures PowerShell activity only when the user explicitly opts in
+through `Invoke-OTLPScript`. The cmdlet creates a fresh hosted runspace and
+attaches `PSDataCollection.DataAdded` handlers to every stream so that capture
+is fully in-memory, cleans up automatically, and never interferes with any
+transcript the caller may already have running.
 
-The main `Start-OTLPSession` implementation should use a transcript-like approach because normal imported PowerShell modules cannot reliably intercept every stream from arbitrary commands in the caller’s live runspace without hosting execution.
-
-Primary mode:
-
-```text
-Start-Transcript to a temporary transcript file.
-Tail the transcript file.
-Redact lines.
-Convert lines into OTLP log records.
-Queue records.
-Batch and send to OTLP.
-Stop transcript and drain queue on Stop-OTLPSession.
-```
-
-## 21.2 Stronger Capture Mode
-
-For scripts executed through `Invoke-OTLPScript`, stronger stream capture should be possible because the module controls the execution wrapper.
-
-`Invoke-OTLPScript` should capture:
+`Invoke-OTLPScript` captures:
 
 ```text
 Output
@@ -1188,22 +1140,8 @@ Native stdout where practical
 Native stderr where practical
 ```
 
-## 21.3 Session Modes
-
-```csharp
-public enum OTLPSessionCaptureMode
-{
-    Transcript,
-    HostedScript
-}
-```
-
-Initial public cmdlets:
-
-```powershell
-Start-OTLPSession -CaptureMode Transcript
-Invoke-OTLPScript -CaptureMode HostedScript
-```
+No transcript file, transcript tailer, or process-wide session registry is
+created. Each invocation owns its queue and disposes it before returning.
 
 ---
 
@@ -1254,12 +1192,18 @@ connection_string
 
 Configurable redaction:
 
-```powershell
-Start-OTLPSession -RedactPattern 'MyCustomSecretPattern'
-```
+Additional redaction patterns are supplied to `Connect-OTLP` as a
+`System.Text.RegularExpressions.Regex[]` and are stored on the active
+`OTLPConnection`. Every exporter that the module builds reads the
+connection's `RedactPatterns` collection and seeds the centralized
+`OTLPRedactionEngine` with them in addition to the built-in defaults.
 
 ```powershell
-Connect-OTLP -RedactEnvironmentVariableName 'CLOUDINIT_*SECRET*','INFISICAL_*TOKEN*'
+$patterns = @(
+    [regex]'(?i)x-custom-secret\s*[:=]\s*[^\s;]+',
+    [regex]'(?i)mytenant_[A-Z0-9]{32}'
+)
+Connect-OTLP -EndpointUri 'https://otel.example.com' -RedactPattern $patterns
 ```
 
 Redaction replacement:
@@ -1268,7 +1212,7 @@ Redaction replacement:
 [REDACTED]
 ```
 
-No raw unredacted transcript lines should be exported when redaction is enabled.
+No raw unredacted log bodies should be exported when redaction is enabled.
 
 Default:
 
@@ -1314,7 +1258,7 @@ public enum OTLPQueueDropPolicy
 
 Since async/await is forbidden, the queue worker must use synchronous logic.
 
-`Stop-OTLPSession` must drain the queue unless `-NoDrain` is specified.
+`Invoke-OTLPScript` drains its in-memory queue before returning. `Send-OTLPLogBatch` flushes the supplied batch synchronously.
 
 ---
 
@@ -1335,14 +1279,14 @@ Connect-OTLP `
     [-TracesEndpointUri <Uri>] `
     [-MetricsEndpointUri <Uri>] `
     [-BearerToken <SecureString>] `
-    [-ApiKeyHeaderName <string>] `
-    [-ApiKey <SecureString>] `
-    [-Header <hashtable>] `
+    [-Header <IDictionary>] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
     [-ServiceInstanceId <string>] `
     [-EnvironmentName <string>] `
-    [-ResourceAttribute <hashtable>] `
+    [-ResourceAttribute <IDictionary>] `
+    [-LogAttribute <IDictionary>] `
+    [-RedactPattern <Regex[]>] `
     [-Compression <None|Gzip>] `
     [-Encoding <Json|Protobuf>] `
     [-RetryCount <int>] `
@@ -1387,11 +1331,18 @@ $Token = Read-Host -Prompt 'Bearer Token' -AsSecureString
 Connect-OTLP -EndpointUri 'https://otel.example.com' -BearerToken $Token -ServiceName 'cloudinit'
 ```
 
-API key example:
+Custom header example (all header values are stored as `SecureString`):
 
 ```powershell
 $ApiKey = Read-Host -Prompt 'API Key' -AsSecureString
-Connect-OTLP -EndpointUri 'https://in-otel.example.com' -ApiKeyHeaderName 'authorization' -ApiKey $ApiKey -ServiceName 'powershell-session'
+Connect-OTLP -EndpointUri 'https://in-otel.example.com' -Header @{ Authorization = $ApiKey } -ServiceName 'powershell-session'
+```
+
+Custom redaction example:
+
+```powershell
+$patterns = @([regex]'(?i)x-custom-secret\s*[:=]\s*[^\s;]+')
+Connect-OTLP -EndpointUri 'https://otel.example.com' -RedactPattern $patterns
 ```
 
 ---
@@ -1413,7 +1364,6 @@ Disconnect-OTLP [-PassThru]
 ```text
 Clear current connection.
 Clear header/token references.
-Stop active sessions only when -Force is introduced in a future version.
 Return nothing by default.
 ```
 
@@ -1437,7 +1387,6 @@ Get-OTLPConnection
 Return current connection metadata.
 Do not include header values.
 Do not include tokens.
-Do not include API keys.
 ```
 
 ---
@@ -1489,122 +1438,7 @@ Write-OTLPLog -Body 'Starting bootstrap' -Severity Information -Attribute @{ Pha
 
 ---
 
-# 24.5 Start-OTLPSession
-
-## Purpose
-
-Start session-level PowerShell capture and emit captured activity as OTLP logs.
-
-## Parameters
-
-```powershell
-Start-OTLPSession `
-    [-SessionName <string>] `
-    [-ServiceName <string>] `
-    [-CaptureMode <Transcript>] `
-    [-TranscriptPath <FileInfo>] `
-    [-BatchSize <int>] `
-    [-FlushIntervalSeconds <int>] `
-    [-MaxQueueSize <int>] `
-    [-DropPolicy <DropOldest|DropNewest|Block>] `
-    [-RedactionEnabled <bool>] `
-    [-RedactPattern <string[]>] `
-    [-Attribute <hashtable>] `
-    [-PassThru]
-```
-
-## Defaults
-
-```text
-SessionName: generated session name
-CaptureMode: Transcript
-TranscriptPath: temporary file path
-BatchSize: 100
-FlushIntervalSeconds: 5
-MaxQueueSize: 10000
-DropPolicy: DropOldest
-RedactionEnabled: true
-```
-
-## Behavior
-
-```text
-Require current connection.
-Create OTLP session ID.
-Start transcript to typed FileInfo path.
-Start synchronous transcript tailer.
-Convert new transcript lines to OTLP log records.
-Apply redaction.
-Queue records.
-Return session object only with -PassThru.
-```
-
-Example:
-
-```powershell
-Start-OTLPSession -SessionName 'CloudInit-PostExecution' -ServiceName 'cloudinit' -Verbose
-```
-
----
-
-# 24.6 Stop-OTLPSession
-
-## Purpose
-
-Stop active OTLP session capture.
-
-## Parameters
-
-```powershell
-Stop-OTLPSession `
-    [-SessionId <Guid>] `
-    [-NoDrain] `
-    [-PassThru]
-```
-
-## Behavior
-
-```text
-Stop transcript tailer.
-Stop transcript.
-Drain queue unless -NoDrain is specified.
-Flush final batch.
-Clear session state.
-Return session summary only with -PassThru.
-```
-
-Example:
-
-```powershell
-Stop-OTLPSession -Verbose
-```
-
----
-
-# 24.7 Get-OTLPSession
-
-## Purpose
-
-Return active or recent OTLP session metadata.
-
-## Parameters
-
-```powershell
-Get-OTLPSession [-SessionId <Guid>] [-IncludeCompleted]
-```
-
-## Behavior
-
-```text
-Return active session by default.
-Return completed sessions only when requested.
-Do not return transcript raw content.
-Do not return sensitive data.
-```
-
----
-
-# 24.8 Send-OTLPLogBatch
+# 24.5 Send-OTLPLogBatch
 
 ## Purpose
 
@@ -1636,11 +1470,14 @@ Return export result only with -PassThru.
 
 ---
 
-# 24.9 Invoke-OTLPScript
+# 24.6 Invoke-OTLPScript
 
 ## Purpose
 
-Execute a script block with stronger stream capture than transcript tailing.
+Execute a script block in an isolated hosted runspace and emit each captured
+PowerShell stream record as an OTLP log. Capture is fully in-memory and never
+writes a transcript or interferes with any transcript the caller may already
+have running.
 
 ## Parameters
 
@@ -1650,19 +1487,21 @@ Invoke-OTLPScript `
     [-ArgumentList <object[]>] `
     [-SessionName <string>] `
     [-ServiceName <string>] `
-    [-Attribute <hashtable>] `
+    [-Attribute <IDictionary>] `
+    [-BatchSize <int>] `
     [-PassThru]
 ```
 
 ## Behavior
 
 ```text
-Create controlled invocation context.
-Capture PowerShell streams where practical.
-Map stream records to OTLP log records.
+Require current connection.
+Create a fresh hosted PowerShell runspace.
+Attach DataAdded handlers to every stream.
+Map each captured record to an OTLP log record.
+Apply connection-level redaction patterns.
+Drain the in-memory queue to the log exporter before returning.
 Preserve normal script output behavior where practical.
-Flush records at end.
-Return script output when appropriate.
 ```
 
 Example:
@@ -1801,38 +1640,25 @@ Clear request/response bodies as practical.
 
 ## 28.1 OTLPSession
 
+The `OTLPSession` type is an internal accounting record used by
+`Invoke-OTLPScript` to track how many stream events were captured, exported,
+and dropped during a single hosted invocation. It is not exposed through any
+public cmdlet.
+
 ```csharp
 public sealed class OTLPSession
 {
     public Guid SessionId { get; set; }
     public string SessionName { get; set; }
     public string ServiceName { get; set; }
-    public OTLPSessionCaptureMode CaptureMode { get; set; }
     public DateTimeOffset StartedAtUtc { get; set; }
     public DateTimeOffset? StoppedAtUtc { get; set; }
-    public FileInfo TranscriptPath { get; set; }
     public int RecordsCaptured { get; set; }
     public int RecordsExported { get; set; }
     public int RecordsDropped { get; set; }
     public bool IsActive { get; set; }
 }
 ```
-
-Default formatting should show:
-
-```text
-SessionName
-SessionId
-ServiceName
-CaptureMode
-StartedAtUtc
-RecordsCaptured
-RecordsExported
-RecordsDropped
-IsActive
-```
-
-Do not display transcript contents.
 
 ---
 
@@ -1869,20 +1695,6 @@ IsConnected
 ConnectedAtUtc
 ```
 
-`OTLPSession` default display:
-
-```text
-SessionName
-SessionId
-ServiceName
-CaptureMode
-StartedAtUtc
-RecordsCaptured
-RecordsExported
-RecordsDropped
-IsActive
-```
-
 `OTLPExportResult` default display:
 
 ```text
@@ -1900,7 +1712,6 @@ Do not display:
 ```text
 Headers
 RawPayload
-TranscriptContent
 ```
 
 ---
@@ -1917,9 +1728,6 @@ Connect-OTLP.md
 Disconnect-OTLP.md
 Get-OTLPConnection.md
 Write-OTLPLog.md
-Start-OTLPSession.md
-Stop-OTLPSession.md
-Get-OTLPSession.md
 Send-OTLPLogBatch.md
 Invoke-OTLPScript.md
 ```
@@ -1974,10 +1782,8 @@ Send-OTLPLogBatch retries 502.
 Send-OTLPLogBatch retries 503.
 Send-OTLPLogBatch retries 504.
 Send-OTLPLogBatch does not retry 400.
-Start-OTLPSession creates session ID.
-Start-OTLPSession creates transcript FileInfo.
-Stop-OTLPSession drains queue by default.
-Get-OTLPSession does not return transcript content.
+Invoke-OTLPScript drains its in-memory queue before returning.
+Invoke-OTLPScript captures records from every PowerShell stream.
 ```
 
 ## 32.2 Integration Tests
@@ -2006,7 +1812,7 @@ Integration tests should verify:
 Connect-OTLP works.
 Write-OTLPLog exports successfully.
 Send-OTLPLogBatch exports successfully.
-Start-OTLPSession and Stop-OTLPSession complete without error.
+Invoke-OTLPScript exports captured stream records.
 Retry behavior handles a temporary failing endpoint.
 Header values are never logged.
 ```
@@ -2076,30 +1882,17 @@ Write-OTLPLog
 Send-OTLPLogBatch
 ```
 
-## Milestone 6: Session Capture
-
-```text
-OTLPSession model
-Start-OTLPSession
-Transcript file management
-Transcript tailer
-Queue manager
-Batch flushing
-Stop-OTLPSession
-Get-OTLPSession
-```
-
-## Milestone 7: Script Invocation Capture
+## Milestone 6: Script Invocation Capture
 
 ```text
 Invoke-OTLPScript
-Stream capture
+In-memory stream capture
 Stream-to-severity mapping
 Script output preservation
 Final batch flushing
 ```
 
-## Milestone 8: Docs and Release
+## Milestone 7: Docs and Release
 
 ```text
 External help
@@ -2136,10 +1929,7 @@ Disconnect-OTLP clears the current connection.
 Get-OTLPConnection returns sanitized connection metadata.
 Write-OTLPLog emits a structured log record.
 Send-OTLPLogBatch sends log records to OTLP/HTTP.
-Start-OTLPSession starts transcript-based session capture.
-Stop-OTLPSession stops capture and drains queued logs by default.
-Get-OTLPSession returns session metadata only.
-Invoke-OTLPScript supports stronger controlled stream capture.
+Invoke-OTLPScript provides in-memory controlled stream capture.
 Endpoint paths are centralized.
 URI building is centralized.
 HTTP request execution is centralized.
@@ -2158,7 +1948,6 @@ Bearer tokens are never logged.
 API keys are never logged.
 Header values are never logged.
 Raw payloads are not logged by default.
-Transcript contents are not returned by public cmdlets.
 Redaction is enabled by default.
 Default OTLP/HTTP endpoint is supported.
 Custom logs endpoint is supported.
@@ -2946,54 +2735,39 @@ Write-OTLPSpanEvent -Name 'PackageDownloaded' -Attribute @{ Package = 'Git'; Sou
 
 ## 15. Stream Capture Without Rewriting Cmdlets
 
-PSOTLP must not require rewriting existing PowerShell cmdlets, functions, or scripts.
-
-The design goal is:
+PSOTLP must not require rewriting existing PowerShell cmdlets, functions, or
+scripts. The design goal is:
 
 ```text
-Start capture.
-Run normal PowerShell.
-Stop capture.
+Wrap the script in Invoke-OTLPScript.
+Run normal PowerShell inside.
+Return.
 ```
 
 Example:
 
 ```powershell
-Start-OTLPSession -SessionName 'Device-Onboarding'
-
-Write-Verbose 'Starting onboarding'
-winget install -e --id Git.Git
-Get-Service
-Write-Warning 'Example warning'
-
-Stop-OTLPSession
+Invoke-OTLPScript -SessionName 'Device-Onboarding' -ScriptBlock {
+    Write-Verbose 'Starting onboarding'
+    winget install -e --id Git.Git
+    Get-Service
+    Write-Warning 'Example warning'
+}
 ```
 
-The module should capture as much as is realistically available without modifying the user’s commands.
-
-Capture strategies:
+Capture strategy:
 
 ```text
-Transcript tailing for broad live-session capture.
-PowerShell SDK stream collection when PSOTLP owns invocation.
-DataAdded stream events for hosted PowerShell invocations.
-Native stdout/stderr capture when PSOTLP starts the process.
-Optional Start-Process wrapper in future, but not required initially.
+PowerShell SDK stream collection inside a hosted runspace owned by Invoke-OTLPScript.
+DataAdded stream events on every PowerShell stream.
+No transcript file, no transcript tailer, no process-wide session registry.
+No interference with any transcript the caller may already be running.
 ```
 
 Important limitation:
 
 ```text
-An imported module cannot transparently intercept every stream from every arbitrary command in the caller’s live runspace unless it controls the host, controls the invocation, or uses transcript-style capture.
-```
-
-Therefore:
-
-```text
-Start-OTLPSession uses transcript-based capture by default.
-Invoke-OTLPScript uses controlled invocation stream capture.
-Future host-level integration may support deeper capture.
-No user cmdlet rewriting is required.
+An imported module cannot transparently intercept every stream from every arbitrary command in the caller's live runspace. Capture is only guaranteed when PSOTLP owns the invocation through Invoke-OTLPScript.
 ```
 
 ---
@@ -3034,14 +2808,13 @@ The wrapper should preserve normal output behavior where practical.
 
 ---
 
-## 17. Session Capture Defaults
+## 17. Invocation Capture Defaults
 
-`Start-OTLPSession` should enrich every captured record with:
+`Invoke-OTLPScript` should enrich every captured record with:
 
 ```text
 powershell.session.id
 powershell.session.name
-powershell.capture.mode
 service.name
 scope.name
 scope.version
@@ -3061,20 +2834,6 @@ trace.id
 span.id
 ```
 
-Session trace behavior:
-
-```text
-Start-OTLPSession may optionally create a root span.
-All logs captured during the session can be correlated to the session span.
-Stop-OTLPSession closes the session span if it created one.
-```
-
-Suggested parameter:
-
-```powershell
-Start-OTLPSession -CreateRootSpan
-```
-
 ---
 
 ## 18. Cmdlet Surface Updates
@@ -3086,9 +2845,6 @@ Connect-OTLP
 Disconnect-OTLP
 Get-OTLPConnection
 Write-OTLPLog
-Start-OTLPSession
-Stop-OTLPSession
-Get-OTLPSession
 Send-OTLPLogBatch
 Invoke-OTLPScript
 ```
@@ -3293,9 +3049,8 @@ No shelling out for hardware/system enrichment.
 Environment variables are detected by Process, User, Machine precedence.
 Explicit cmdlet parameters override environment variables.
 PSOTLP-specific environment variables override OTEL common variables where appropriate.
-No user cmdlet rewriting is required for session capture.
-Invoke-OTLPScript taps streams directly where practical.
-Start-OTLPSession captures broad activity through transcript mode.
+No user cmdlet rewriting is required for invocation capture.
+Invoke-OTLPScript taps streams directly through a hosted runspace.
 ```
 
 ## Default Attribute Presence Rule
@@ -3797,7 +3552,7 @@ Use:
 The OTLP log batch export failed after 3 attempts. The endpoint returned HTTP 503 Service Unavailable.
 The OTLP connection could not be created because the endpoint URI is not valid.
 The OTLP trace batch was not sent because no active OTLP connection exists.
-The transcript session could not be stopped because no active transcript session was found.
+The Invoke-OTLPScript invocation could not drain its queue because no active OTLP connection exists.
 The default device UUID could not be resolved from Win32_ComputerSystemProduct. The value was set to n/a.
 ```
 

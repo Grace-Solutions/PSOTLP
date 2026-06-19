@@ -11,19 +11,4 @@
       </ScriptProperty>
     </Members>
   </Type>
-  <Type>
-    <Name>PSOTLP.Sessions.OTLPSession</Name>
-    <Members>
-      <ScriptProperty>
-        <Name>DurationSeconds</Name>
-        <GetScriptBlock>
-          if ($this.StoppedAtUtc) {
-              ($this.StoppedAtUtc - $this.StartedAtUtc).TotalSeconds
-          } else {
-              ([System.DateTimeOffset]::UtcNow - $this.StartedAtUtc).TotalSeconds
-          }
-        </GetScriptBlock>
-      </ScriptProperty>
-    </Members>
-  </Type>
 </Types>

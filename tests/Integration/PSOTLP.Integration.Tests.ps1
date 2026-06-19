@@ -57,10 +57,8 @@ Describe 'PSOTLP integration: Send-OTLPLogBatch' {
     }
 }
 
-Describe 'PSOTLP integration: Session lifecycle' {
-    It 'starts and stops a session without throwing' -Skip:(-not $script:RunIntegration) {
-        $session = Start-OTLPSession -SessionName 'integration-session' -PassThru
-        $session | Should -Not -BeNullOrEmpty
-        { Stop-OTLPSession -SessionId $session.SessionId } | Should -Not -Throw
+Describe 'PSOTLP integration: Invoke-OTLPScript' {
+    It 'captures and exports script-block output without throwing' -Skip:(-not $script:RunIntegration) {
+        { Invoke-OTLPScript -ScriptBlock { Write-Information 'integration-script' -InformationAction Continue } } | Should -Not -Throw
     }
 }

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Security;
+using System.Text.RegularExpressions;
 using PSOTLP.Authentication;
 using PSOTLP.Common;
 using PSOTLP.Connections;
@@ -56,6 +57,8 @@ namespace PSOTLP.Cmdlets
         [Parameter] public IDictionary ResourceAttribute { get; set; }
         [Parameter] public IDictionary LogAttribute { get; set; }
 
+        [Parameter] public Regex[] RedactPattern { get; set; }
+
         [Parameter] [ValidateRange(0, 10)] public int RetryCount { get; set; } = 3;
         [Parameter] [ValidateRange(1, 600)] public int TimeoutSeconds { get; set; } = 30;
 
@@ -83,6 +86,7 @@ namespace PSOTLP.Cmdlets
                     EnvironmentName = EnvironmentName,
                     ResourceAttributes = HashtableToDictionary(ResourceAttribute),
                     LogAttributes = HashtableToDictionary(LogAttribute),
+                    RedactPatterns = RedactPattern,
                     RetryCount = RetryCount,
                     TimeoutSeconds = TimeoutSeconds,
                     ConnectedAtUtc = DateTimeOffset.UtcNow,

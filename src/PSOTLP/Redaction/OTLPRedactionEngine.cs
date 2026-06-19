@@ -35,16 +35,16 @@ namespace PSOTLP.Redaction
 
         private readonly List<Regex> _patterns;
 
-        public OTLPRedactionEngine() : this((IEnumerable<string>)null) { }
+        public OTLPRedactionEngine() : this((IEnumerable<Regex>)null) { }
 
-        public OTLPRedactionEngine(IEnumerable<string> additionalPatterns)
+        public OTLPRedactionEngine(IEnumerable<Regex> additionalPatterns)
         {
             _patterns = new List<Regex>(DefaultPatterns);
             if (additionalPatterns == null) { return; }
             foreach (var pattern in additionalPatterns)
             {
-                if (string.IsNullOrWhiteSpace(pattern)) { continue; }
-                _patterns.Add(new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant));
+                if (pattern == null) { continue; }
+                _patterns.Add(pattern);
             }
         }
 

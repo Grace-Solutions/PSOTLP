@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Security;
+using System.Text.RegularExpressions;
 using PSOTLP.Common;
 
 namespace PSOTLP.Connections
@@ -34,5 +35,6 @@ namespace PSOTLP.Connections
         public bool IsConnected { get; set; }
 
         internal IDictionary<string, SecureString> Headers { get; set; }
+        internal IList<Regex> RedactPatterns { get; set; }
     }
 }

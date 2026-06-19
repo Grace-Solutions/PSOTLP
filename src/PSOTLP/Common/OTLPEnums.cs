@@ -45,12 +45,6 @@ namespace PSOTLP.Common
         Fatal = 5
     }
 
-    public enum OTLPSessionCaptureMode
-    {
-        Transcript = 0,
-        HostedScript = 1
-    }
-
     public enum OTLPSessionDropPolicy
     {
         DropOldest = 0,
