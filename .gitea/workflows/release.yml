@@ -1,0 +1,73 @@
+name: PSOTLP Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish release artifacts to the configured destinations'
+        required: false
+        default: 'false'
+      sign:
+        description: 'Sign the release artifacts (requires signing secrets)'
+        required: false
+        default: 'false'
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: windows-host
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show runner context
+        shell: pwsh
+        run: |
+          $PSVersionTable
+          [System.Environment]::OSVersion
+          [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+
+      - name: Build and create release package
+        shell: pwsh
+        run: |
+          ./build.ps1 -CI -Clean -Restore -CreateRelease -Configuration Release -Force
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSOTLP-release
+          path: Releases/
+
+  publish:
+    name: Publish
+    needs:
+      - build
+
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') }}
+
+    runs-on: windows-host
+
+    env:
+      POWERSHELL_GALLERY_API_KEY: ${{ secrets.POWERSHELL_GALLERY_API_KEY }}
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      NUGET_SOURCE_URI: ${{ secrets.NUGET_SOURCE_URI }}
+      SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
+      SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+      TIMESTAMP_SERVER_URI: ${{ secrets.TIMESTAMP_SERVER_URI }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish release
+        shell: pwsh
+        run: |
+          $extra = @()
+          if ('${{ github.event.inputs.sign }}' -eq 'true') { $extra += '-Sign' }
+          ./build.ps1 -CI -Clean -Restore -CreateRelease -Publish -PublishPowerShellGallery -Configuration Release -Force @extra
