@@ -260,6 +260,16 @@ Unless overridden by:
 -LogsEndpointUri
 ```
 
+Or unless signal-path suffixing is suppressed by:
+
+```powershell
+-NoSignalPath
+```
+
+When `-NoSignalPath` is set, every signal sends to `{EndpointUri}` exactly as supplied
+(per-signal overrides still win when present). Use this when the endpoint is a proxy,
+collector, or gateway that already routes to the correct signal sink.
+
 ## 5.2 Supported Payload Encoding
 
 Initial encoding:
@@ -843,6 +853,7 @@ Connect-OTLP `
     [-LogsEndpointUri <Uri>] `
     [-TracesEndpointUri <Uri>] `
     [-MetricsEndpointUri <Uri>] `
+    [-NoSignalPath] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
     [-ServiceInstanceId <string>] `
@@ -917,6 +928,7 @@ public sealed class OTLPConnection
     public Uri LogsEndpointUri { get; set; }
     public Uri TracesEndpointUri { get; set; }
     public Uri MetricsEndpointUri { get; set; }
+    public bool NoSignalPath { get; set; }
 
     public OTLPTransport Transport { get; set; }
     public OTLPEncoding Encoding { get; set; }
@@ -1259,6 +1271,7 @@ Connect-OTLP `
     [-LogsEndpointUri <Uri>] `
     [-TracesEndpointUri <Uri>] `
     [-MetricsEndpointUri <Uri>] `
+    [-NoSignalPath] `
     [-Headers <IDictionary>] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
@@ -1752,6 +1765,7 @@ Endpoint registry returns ExportTraces endpoint.
 Endpoint registry returns ExportMetrics endpoint.
 URI builder builds /v1/logs correctly.
 URI builder respects custom LogsEndpointUri.
+URI builder returns base endpoint unchanged when NoSignalPath is set.
 Logger uses required UTC format.
 Logger does not log Authorization header.
 Logger does not log API key header.
@@ -2862,6 +2876,7 @@ Connect-OTLP `
     [-LogsEndpointUri <Uri>] `
     [-TracesEndpointUri <Uri>] `
     [-MetricsEndpointUri <Uri>] `
+    [-NoSignalPath] `
     [-Transport <Http|Grpc>] `
     [-Encoding <Json|Protobuf|NDJson>] `
     [-Headers <IDictionary>] `
@@ -2935,6 +2950,7 @@ public sealed class OTLPConnection
     public Uri LogsEndpointUri { get; set; }
     public Uri TracesEndpointUri { get; set; }
     public Uri MetricsEndpointUri { get; set; }
+    public bool NoSignalPath { get; set; }
 
     public OTLPTransport Transport { get; set; }
     public OTLPEncoding Encoding { get; set; }

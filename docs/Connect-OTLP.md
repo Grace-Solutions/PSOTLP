@@ -14,7 +14,7 @@ Opens a connection to an OTLP endpoint and stores it as the active connection fo
 
 ```
 Connect-OTLP [-EndpointUri <Uri>] [-LogsEndpointUri <Uri>] [-TracesEndpointUri <Uri>]
- [-MetricsEndpointUri <Uri>] [-Headers <IDictionary>] [-Transport <OTLPTransport>]
+ [-MetricsEndpointUri <Uri>] [-NoSignalPath] [-Headers <IDictionary>] [-Transport <OTLPTransport>]
  [-Encoding <OTLPEncoding>] [-Compression <OTLPCompression>] [-ServiceName <String>]
  [-ServiceNamespace <String>] [-ServiceInstanceId <String>] [-ScopeName <String>]
  [-ScopeVersion <String>] [-ScopeAttributes <IDictionary>] [-EnvironmentName <String>]
@@ -66,6 +66,21 @@ $ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.Or
     $ConnectOTLPParameters.TimeoutSeconds = 30
     $ConnectOTLPParameters.PassThru = $True
     $ConnectOTLPParameters.Verbose = $True
+
+$ConnectOTLPResult = Connect-OTLP @ConnectOTLPParameters
+
+Write-Output -InputObject ($ConnectOTLPResult)
+```
+
+### Example 2: Send every signal to a single proxy endpoint without path suffixing
+```powershell
+$ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $ConnectOTLPParameters.EndpointUri = [Uri]'https://otel-proxy.example.com/ingest'
+    $ConnectOTLPParameters.NoSignalPath = $True
+    $ConnectOTLPParameters.Headers = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.Headers['Authorization'] = ConvertTo-SecureString -String ('Bearer ' + $env:OTEL_BEARER_TOKEN) -AsPlainText -Force
+    $ConnectOTLPParameters.ServiceName = 'powershell-installer'
+    $ConnectOTLPParameters.PassThru = $True
 
 $ConnectOTLPResult = Connect-OTLP @ConnectOTLPParameters
 
@@ -131,6 +146,27 @@ Aliases:
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -NoSignalPath
+Suppresses automatic appending of the signal-specific path (`/v1/logs`, `/v1/traces`,
+`/v1/metrics`, `/api/ingest/ndjson`) to `-EndpointUri`. Use this when the configured
+endpoint is a proxy, collector, or gateway that already routes to the correct signal
+sink and must receive the request exactly as supplied. Per-signal overrides
+(`-LogsEndpointUri`, `-TracesEndpointUri`, `-MetricsEndpointUri`) continue to take
+precedence over the base endpoint when set; the switch only changes how the base
+endpoint is used for signals that do not have an explicit override.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

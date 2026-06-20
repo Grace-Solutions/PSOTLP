@@ -12,6 +12,7 @@ namespace PSOTLP.Connections
         public Uri LogsEndpointUri { get; set; }
         public Uri TracesEndpointUri { get; set; }
         public Uri MetricsEndpointUri { get; set; }
+        public bool NoSignalPath { get; set; }
 
         public OTLPTransport Transport { get; set; } = OTLPTransport.Http;
         public OTLPEncoding Encoding { get; set; } = OTLPEncoding.Json;

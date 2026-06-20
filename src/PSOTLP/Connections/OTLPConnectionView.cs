@@ -16,6 +16,7 @@ namespace PSOTLP.Connections
         public Uri LogsEndpointUri { get; set; }
         public Uri TracesEndpointUri { get; set; }
         public Uri MetricsEndpointUri { get; set; }
+        public bool NoSignalPath { get; set; }
 
         public OTLPTransport Transport { get; set; }
         public OTLPEncoding Encoding { get; set; }
@@ -49,6 +50,7 @@ namespace PSOTLP.Connections
                 LogsEndpointUri = connection.LogsEndpointUri,
                 TracesEndpointUri = connection.TracesEndpointUri,
                 MetricsEndpointUri = connection.MetricsEndpointUri,
+                NoSignalPath = connection.NoSignalPath,
                 Transport = connection.Transport,
                 Encoding = connection.Encoding,
                 Compression = connection.Compression,
