@@ -24,7 +24,8 @@ Describe 'PSOTLP module manifest' {
         $expected = @(
             'Connect-OTLP','Disconnect-OTLP','Get-OTLPConnection',
             'Write-OTLPLog','Send-OTLPLogBatch','Invoke-OTLPScript',
-            'Start-OTLPSpan','Stop-OTLPSpan','Write-OTLPSpanEvent','Send-OTLPTraceBatch'
+            'Start-OTLPSpan','Stop-OTLPSpan','Write-OTLPSpanEvent','Send-OTLPTraceBatch',
+            'Write-OTLPMetric','Send-OTLPMetricBatch'
         )
         foreach ($name in $expected) { $module.ExportedCmdlets.Keys | Should -Contain $name }
     }

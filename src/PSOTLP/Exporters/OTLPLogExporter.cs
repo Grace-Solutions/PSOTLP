@@ -44,7 +44,7 @@ namespace PSOTLP.Exporters
             }
 
             var definition = OTLPEndpointRegistry.Get(OTLPEndpointRegistry.ExportLogsName);
-            var uri = OTLPUriBuilder.Build(connection.EndpointUri, definition, connection.LogsEndpointUri);
+            var uri = OTLPUriBuilder.Build(connection.EndpointUri, definition, connection.LogsEndpointUri, connection.Encoding);
             var payload = BuildPayload(connection, records);
 
             var body = _serializer.SerializeLogs(payload);

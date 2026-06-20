@@ -87,6 +87,7 @@ Invoke-OTLPBuildCompile -Context $Context
 Publish-OTLPModuleAssets -Context $Context -Force:$Force
 Write-OTLPModuleManifest -Context $Context
 Write-OTLPModuleLoader -Context $Context -Force:$Force
+Update-OTLPExternalHelp -Context $Context
 Update-OTLPChangeLog -Context $Context
 
 if ($RunTests) { Invoke-OTLPUnitTests -Context $Context }

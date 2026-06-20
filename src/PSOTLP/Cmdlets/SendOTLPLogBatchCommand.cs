@@ -54,7 +54,7 @@ namespace PSOTLP.Cmdlets
         private IOTLPLogExporter BuildExporter(OTLPConnection connection)
         {
             var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
-            var serializer = new OTLPJsonSerializer();
+            var serializer = OTLPSerializerFactory.Create(connection != null ? connection.Encoding : Common.OTLPEncoding.Json);
             var redaction = new OTLPRedactionEngine(connection != null ? connection.RedactPatterns : null);
             return new OTLPLogExporter(http, serializer, redaction, Logger);
         }

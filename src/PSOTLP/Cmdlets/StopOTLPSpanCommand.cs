@@ -51,7 +51,7 @@ namespace PSOTLP.Cmdlets
                 if (!NoExport.IsPresent)
                 {
                     WriteVerboseLine("Sending OTLP span (name=" + span.Name + ", spanId=" + span.SpanId + "). Please Wait...");
-                    var exporter = BuildExporter();
+                    var exporter = BuildExporter(connection);
                     exporter.Export(connection, new List<OTLPSpan> { span });
                     WriteVerboseLine("OTLP span export was successful.");
                 }
@@ -64,10 +64,10 @@ namespace PSOTLP.Cmdlets
             }
         }
 
-        private IOTLPTraceExporter BuildExporter()
+        private IOTLPTraceExporter BuildExporter(OTLPConnection connection)
         {
             var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
-            var serializer = new OTLPJsonSerializer();
+            var serializer = OTLPSerializerFactory.Create(connection != null ? connection.Encoding : OTLPEncoding.Json);
             return new OTLPTraceExporter(http, serializer, Logger);
         }
     }

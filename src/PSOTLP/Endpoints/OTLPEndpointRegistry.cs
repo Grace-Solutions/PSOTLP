@@ -25,6 +25,7 @@ namespace PSOTLP.Endpoints
                         SignalType = OTLPSignalType.Logs,
                         Method = "POST",
                         DefaultPath = "/v1/logs",
+                        NDJsonPath = "/api/ingest/ndjson",
                         DefaultContentType = "application/json",
                         SupportsCompression = true,
                         RequiresAuthorization = false

@@ -9,8 +9,9 @@ namespace PSOTLP.Resources
     /// <summary>
     /// Centralized resource attribute merger. Resolves the final OTLPResource value used by the
     /// log and trace exporters by combining (in precedence order):
-    ///   1. Built-in system inventory attributes (host/os/process).
-    ///   2. Module identity attributes (telemetry.sdk.*, service.* defaults).
+    ///   1. Built-in system inventory attributes (host/os/process/network).
+    ///   2. Module identity attributes (service.name; service.namespace, service.instance.id and
+    ///      deployment.environment only when explicitly configured on the connection).
     ///   3. Connection-level resource attributes (Connect-OTLP -ResourceAttribute).
     ///   4. Per-record resource attributes supplied by the cmdlet caller.
     /// </summary>
@@ -24,6 +25,7 @@ namespace PSOTLP.Resources
 
             MergeInto(merged, SystemInfo.GetHostAttributes());
             MergeInto(merged, SystemInfo.GetHardwareAttributes());
+            MergeInto(merged, SystemInfo.GetNetworkAttributes());
             MergeInto(merged, GetModuleAttributes(connection));
 
             if (connection != null && connection.ResourceAttributes != null)
@@ -38,7 +40,7 @@ namespace PSOTLP.Resources
 
         public static OTLPInstrumentationScope BuildScope(OTLPConnection connection)
         {
-            return new OTLPInstrumentationScope
+            var scope = new OTLPInstrumentationScope
             {
                 Name = OTLPAttributeConverter.NormalizeMissing(
                     connection != null && !string.IsNullOrWhiteSpace(connection.ScopeName)
@@ -49,25 +51,37 @@ namespace PSOTLP.Resources
                         ? connection.ScopeVersion
                         : OTLPModuleInfo.Version)
             };
+
+            if (connection != null && connection.ScopeAttributes != null && connection.ScopeAttributes.Count > 0)
+            {
+                scope.Attributes = OTLPAttributeConverter.ToKeyValueList(connection.ScopeAttributes);
+            }
+
+            return scope;
         }
 
         private static IDictionary<string, object> GetModuleAttributes(OTLPConnection connection)
         {
             var attributes = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
             {
-                ["service.name"] = OTLPAttributeConverter.NormalizeMissing(connection != null ? connection.ServiceName : null),
-                ["service.namespace"] = OTLPAttributeConverter.NormalizeMissing(connection != null ? connection.ServiceNamespace : null),
-                ["service.instance.id"] = OTLPAttributeConverter.NormalizeMissing(connection != null ? connection.ServiceInstanceId : null),
-                ["deployment.environment"] = OTLPAttributeConverter.NormalizeMissing(connection != null ? connection.EnvironmentName : null),
-                ["telemetry.sdk.name"] = OTLPModuleInfo.TelemetrySdkName,
-                ["telemetry.sdk.language"] = OTLPModuleInfo.TelemetrySdkLanguage,
-                ["telemetry.sdk.version"] = OTLPAttributeConverter.NormalizeMissing(OTLPModuleInfo.Version),
-                ["telemetry.distro.name"] = OTLPModuleInfo.DistroName,
-                ["telemetry.distro.version"] = OTLPAttributeConverter.NormalizeMissing(OTLPModuleInfo.Version)
+                ["service.name"] = OTLPAttributeConverter.NormalizeMissing(connection != null ? connection.ServiceName : null)
             };
 
-            var commit = OTLPModuleInfo.CommitHash;
-            if (!string.IsNullOrEmpty(commit)) { attributes["telemetry.distro.commit"] = commit; }
+            if (connection != null)
+            {
+                if (!string.IsNullOrWhiteSpace(connection.ServiceNamespace))
+                {
+                    attributes["service.namespace"] = connection.ServiceNamespace.Trim();
+                }
+                if (!string.IsNullOrWhiteSpace(connection.ServiceInstanceId))
+                {
+                    attributes["service.instance.id"] = connection.ServiceInstanceId.Trim();
+                }
+                if (!string.IsNullOrWhiteSpace(connection.EnvironmentName))
+                {
+                    attributes["deployment.environment"] = connection.EnvironmentName.Trim();
+                }
+            }
 
             return attributes;
         }

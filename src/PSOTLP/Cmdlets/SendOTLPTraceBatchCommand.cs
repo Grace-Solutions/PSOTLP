@@ -35,7 +35,7 @@ namespace PSOTLP.Cmdlets
                 var connection = OTLPSessionManager.RequireCurrentConnection();
 
                 WriteVerboseLine("Sending OTLP trace batch of " + _buffer.Count + " spans. Please Wait...");
-                var exporter = BuildExporter();
+                var exporter = BuildExporter(connection);
                 var result = exporter.Export(connection, _buffer);
                 WriteVerboseLine("OTLP trace batch send was successful (status " + result.StatusCode + ").");
 
@@ -47,10 +47,10 @@ namespace PSOTLP.Cmdlets
             }
         }
 
-        private IOTLPTraceExporter BuildExporter()
+        private IOTLPTraceExporter BuildExporter(OTLPConnection connection)
         {
             var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
-            var serializer = new OTLPJsonSerializer();
+            var serializer = OTLPSerializerFactory.Create(connection != null ? connection.Encoding : Common.OTLPEncoding.Json);
             return new OTLPTraceExporter(http, serializer, Logger);
         }
     }

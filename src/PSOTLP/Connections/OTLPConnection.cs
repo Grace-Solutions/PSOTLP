@@ -27,6 +27,7 @@ namespace PSOTLP.Connections
 
         public IDictionary<string, object> ResourceAttributes { get; set; }
         public IDictionary<string, object> LogAttributes { get; set; }
+        public IDictionary<string, object> ScopeAttributes { get; set; }
 
         public int RetryCount { get; set; } = 3;
         public int TimeoutSeconds { get; set; } = 30;

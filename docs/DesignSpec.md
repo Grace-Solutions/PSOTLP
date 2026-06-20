@@ -73,7 +73,7 @@ OTLP/gRPC
 The main user experience is connection-scoped explicit logging and on-demand script capture:
 
 ```powershell
-Connect-OTLP -EndpointUri 'https://otel.example.com' -Header @{ Authorization = (ConvertTo-SecureString 'Bearer token' -AsPlainText -Force) }
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ Authorization = (ConvertTo-SecureString 'Bearer token' -AsPlainText -Force) }
 
 Write-OTLPLog -Body 'Starting device onboarding' -Severity Information -Attribute @{ Phase = 'PreExecution'; Customer = 'Personal' }
 
@@ -829,70 +829,51 @@ Custom headers
 Environment variable driven headers
 ```
 
-## 15.1 Connect-OTLP Parameter Sets
+## 15.1 Connect-OTLP Parameter Surface
 
-### No Authentication
+`Connect-OTLP` exposes a single parameter set. All authentication headers — bearer tokens,
+API keys, vendor-specific values — are supplied through the `-Headers` dictionary, which accepts
+any `IDictionary` implementation (`Hashtable`, `OrderedDictionary`, etc.). Values may be
+`String` or `SecureString`; plain strings are converted to `SecureString` at parameter binding.
 
 ```powershell
 Connect-OTLP `
     -EndpointUri <Uri> `
+    [-Headers <IDictionary>] `
     [-LogsEndpointUri <Uri>] `
+    [-TracesEndpointUri <Uri>] `
+    [-MetricsEndpointUri <Uri>] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
     [-ServiceInstanceId <string>] `
+    [-ScopeName <string>] `
+    [-ScopeVersion <string>] `
+    [-ScopeAttributes <IDictionary>] `
     [-EnvironmentName <string>] `
     [-Compression <None|Gzip>] `
-    [-Encoding <Json|Protobuf>] `
+    [-Encoding <Json|Protobuf|NDJson>] `
     [-PassThru]
 ```
 
-### Bearer Token
+Common header shapes:
 
 ```powershell
-Connect-OTLP `
-    -EndpointUri <Uri> `
-    -BearerToken <SecureString> `
-    [-LogsEndpointUri <Uri>] `
-    [-ServiceName <string>] `
-    [-ServiceNamespace <string>] `
-    [-ServiceInstanceId <string>] `
-    [-EnvironmentName <string>] `
-    [-Compression <None|Gzip>] `
-    [-Encoding <Json|Protobuf>] `
-    [-PassThru]
-```
+# No authentication
+Connect-OTLP -EndpointUri 'https://otel.example.com'
 
-### API Key Header
+# Bearer token (callers prepend "Bearer " themselves so the dictionary is verbatim)
+$bearer = ConvertTo-SecureString -String 'Bearer eyJhbGciOi...' -AsPlainText -Force
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ Authorization = $bearer }
 
-```powershell
-Connect-OTLP `
-    -EndpointUri <Uri> `
-    -ApiKeyHeaderName <string> `
-    -ApiKey <SecureString> `
-    [-LogsEndpointUri <Uri>] `
-    [-ServiceName <string>] `
-    [-ServiceNamespace <string>] `
-    [-ServiceInstanceId <string>] `
-    [-EnvironmentName <string>] `
-    [-Compression <None|Gzip>] `
-    [-Encoding <Json|Protobuf>] `
-    [-PassThru]
-```
+# Vendor API key (HyperDX style)
+$key = Read-Host -AsSecureString
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ authorization = $key }
 
-### Custom Headers
-
-```powershell
-Connect-OTLP `
-    -EndpointUri <Uri> `
-    -Header <hashtable> `
-    [-LogsEndpointUri <Uri>] `
-    [-ServiceName <string>] `
-    [-ServiceNamespace <string>] `
-    [-ServiceInstanceId <string>] `
-    [-EnvironmentName <string>] `
-    [-Compression <None|Gzip>] `
-    [-Encoding <Json|Protobuf>] `
-    [-PassThru]
+# Multiple headers (ordered, vendor + tenant)
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers ([ordered]@{
+    Authorization = $bearer
+    'x-tenant-id' = 'personal'
+})
 ```
 
 ## 15.2 Header Rules
@@ -900,7 +881,7 @@ Connect-OTLP `
 ```text
 All header values are treated as potentially sensitive.
 Header values are stored as SecureString.
-Plaintext values supplied through -Header are converted to SecureString at parameter binding.
+Plaintext values supplied through -Headers are converted to SecureString at parameter binding.
 Never log header values.
 Never display header values.
 Convert SecureString to plaintext only at the HTTP request creation boundary.
@@ -1278,17 +1259,19 @@ Connect-OTLP `
     [-LogsEndpointUri <Uri>] `
     [-TracesEndpointUri <Uri>] `
     [-MetricsEndpointUri <Uri>] `
-    [-BearerToken <SecureString>] `
-    [-Header <IDictionary>] `
+    [-Headers <IDictionary>] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
     [-ServiceInstanceId <string>] `
+    [-ScopeName <string>] `
+    [-ScopeVersion <string>] `
+    [-ScopeAttributes <IDictionary>] `
     [-EnvironmentName <string>] `
     [-ResourceAttribute <IDictionary>] `
     [-LogAttribute <IDictionary>] `
     [-RedactPattern <Regex[]>] `
     [-Compression <None|Gzip>] `
-    [-Encoding <Json|Protobuf>] `
+    [-Encoding <Json|Protobuf|NDJson>] `
     [-RetryCount <int>] `
     [-TimeoutSeconds <int>] `
     [-PassThru]
@@ -1302,6 +1285,7 @@ LogsEndpointUri: EndpointUri + /v1/logs
 Compression: None
 Encoding: Json
 ServiceName: powershell
+ServiceNamespace: PSOTLP
 ServiceInstanceId: generated GUID
 RetryCount: 3
 TimeoutSeconds: 30
@@ -1324,18 +1308,20 @@ Return connection only with -PassThru.
 Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'powershell-session' -EnvironmentName 'production' -Verbose
 ```
 
-Bearer token example:
+Bearer token example (callers prepend `Bearer ` themselves so the dictionary is stored as-is):
 
 ```powershell
-$Token = Read-Host -Prompt 'Bearer Token' -AsSecureString
-Connect-OTLP -EndpointUri 'https://otel.example.com' -BearerToken $Token -ServiceName 'cloudinit'
+$Token  = Read-Host -Prompt 'Bearer Token' -AsSecureString
+$bearer = ConvertTo-SecureString -String ('Bearer ' +
+    [System.Net.NetworkCredential]::new('', $Token).Password) -AsPlainText -Force
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ Authorization = $bearer } -ServiceName 'cloudinit'
 ```
 
 Custom header example (all header values are stored as `SecureString`):
 
 ```powershell
 $ApiKey = Read-Host -Prompt 'API Key' -AsSecureString
-Connect-OTLP -EndpointUri 'https://in-otel.example.com' -Header @{ Authorization = $ApiKey } -ServiceName 'powershell-session'
+Connect-OTLP -EndpointUri 'https://in-otel.example.com' -Headers @{ Authorization = $ApiKey } -ServiceName 'powershell-session'
 ```
 
 Custom redaction example:
@@ -2573,23 +2559,25 @@ IDictionary<string, SecureString> Headers
 
 A single `Headers` collection holds every header, including `Authorization`,
 API key headers, and any custom headers. There is no separate sensitive-header
-collection. Plaintext values supplied through `-Header` (for example a
+collection. Plaintext values supplied through `-Headers` (for example a
 hashtable of strings) are converted to `SecureString` at parameter binding.
 
 Parameter examples:
 
 ```powershell
-Connect-OTLP -EndpointUri 'https://otel.example.com' -Header @{ 'x-tenant-id' = 'personal' }
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ 'x-tenant-id' = 'personal' }
 ```
 
 ```powershell
-$Token = Read-Host -AsSecureString
-Connect-OTLP -EndpointUri 'https://otel.example.com' -BearerToken $Token
+$Token  = Read-Host -AsSecureString
+$bearer = ConvertTo-SecureString -String ('Bearer ' +
+    [System.Net.NetworkCredential]::new('', $Token).Password) -AsPlainText -Force
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ Authorization = $bearer }
 ```
 
 ```powershell
 $ApiKey = Read-Host -AsSecureString
-Connect-OTLP -EndpointUri 'https://otel.example.com' -ApiKeyHeaderName 'authorization' -ApiKey $ApiKey
+Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ authorization = $ApiKey }
 ```
 
 Rules:
@@ -2599,7 +2587,7 @@ All header values are treated as sensitive.
 Header values must never be logged.
 Header values must never be displayed.
 Header values must only be converted to plaintext at the HTTP request creation boundary.
-Plaintext supplied through -Header is converted to SecureString at parameter binding.
+Plaintext supplied through -Headers is converted to SecureString at parameter binding.
 Bearer tokens and API keys are stored in the same Headers collection.
 ```
 
@@ -2873,17 +2861,16 @@ Connect-OTLP `
     [-EndpointUri <Uri>] `
     [-LogsEndpointUri <Uri>] `
     [-TracesEndpointUri <Uri>] `
+    [-MetricsEndpointUri <Uri>] `
     [-Transport <Http|Grpc>] `
-    [-Encoding <Json|Protobuf>] `
-    [-BearerToken <SecureString>] `
-    [-ApiKeyHeaderName <string>] `
-    [-ApiKey <SecureString>] `
-    [-Header <IDictionary>] `
+    [-Encoding <Json|Protobuf|NDJson>] `
+    [-Headers <IDictionary>] `
     [-ServiceName <string>] `
     [-ServiceNamespace <string>] `
     [-ServiceInstanceId <string>] `
     [-ScopeName <string>] `
     [-ScopeVersion <string>] `
+    [-ScopeAttributes <IDictionary>] `
     [-EnvironmentName <string>] `
     [-ResourceAttribute <IDictionary>] `
     [-LogAttribute <IDictionary>] `
@@ -2971,11 +2958,11 @@ public sealed class OTLPConnection
 }
 ```
 
-`-BearerToken`, `-ApiKey`, and `-Header` parameters all funnel into the same
-`Headers` collection. `-BearerToken` adds `Authorization` with value
-`Bearer <token>` (built at request creation), `-ApiKey` adds the configured
-api-key header, and `-Header` adds the remaining values. There is no separate
-sensitive-header collection.
+All authentication headers (bearer tokens, API keys, vendor-specific values)
+are supplied through the single `-Headers` dictionary and stored in `Headers`
+as `SecureString`. There is no separate sensitive-header collection and no
+dedicated `-BearerToken`/`-ApiKey` parameters; callers compose the value
+themselves (for example, `@{ Authorization = 'Bearer <token>' }`).
 
 ---
 

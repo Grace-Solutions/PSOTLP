@@ -42,6 +42,7 @@ Module/PSOTLP/bin/
 # Release artifacts and intermediate artifacts folder
 Artifacts/
 Releases/
+Scratch/
 
 # Test output
 TestResults/

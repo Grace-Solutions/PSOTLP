@@ -14,9 +14,6 @@ namespace PSOTLP.Authentication
     /// </summary>
     public static class OTLPHeaderUtility
     {
-        public const string AuthorizationHeaderName = "Authorization";
-        public const string BearerScheme = "Bearer";
-
         public static IDictionary<string, SecureString> CreateEmpty()
         {
             return new Dictionary<string, SecureString>(StringComparer.OrdinalIgnoreCase);
@@ -42,32 +39,6 @@ namespace PSOTLP.Authentication
             if (value == null) { return null; }
             if (value is SecureString s) { return s; }
             return OTLPSecureStringUtility.ToSecureString(value.ToString());
-        }
-
-        public static void SetBearerToken(IDictionary<string, SecureString> headers, SecureString token)
-        {
-            if (headers == null) { throw new ArgumentNullException(nameof(headers)); }
-            if (token == null) { headers.Remove(AuthorizationHeaderName); return; }
-
-            string plaintext = null;
-            try
-            {
-                plaintext = OTLPSecureStringUtility.ToPlainText(token);
-                headers[AuthorizationHeaderName] = OTLPSecureStringUtility.ToSecureString(
-                    BearerScheme + " " + plaintext);
-            }
-            finally
-            {
-                plaintext = null;
-            }
-        }
-
-        public static void SetApiKey(IDictionary<string, SecureString> headers, string headerName, SecureString apiKey)
-        {
-            if (headers == null) { throw new ArgumentNullException(nameof(headers)); }
-            if (string.IsNullOrWhiteSpace(headerName)) { throw new ArgumentException("Header name is required.", nameof(headerName)); }
-            if (apiKey == null) { headers.Remove(headerName); return; }
-            headers[headerName] = apiKey;
         }
 
         /// <summary>

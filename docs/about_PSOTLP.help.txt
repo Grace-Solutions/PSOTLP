@@ -2,23 +2,30 @@ TOPIC
     about_PSOTLP
 
 SHORT DESCRIPTION
-    PSOTLP emits OpenTelemetry Protocol (OTLP) telemetry from PowerShell. It
-    ships with cmdlets for connection management, structured logging, session
-    capture, hosted script execution, and span/trace tracking.
+    PSOTLP emits OpenTelemetry Protocol (OTLP) logs, traces, and metrics
+    from PowerShell. It ships with cmdlets for connection management,
+    structured logging, hosted script execution with stream capture, and
+    span/trace tracking.
 
 LONG DESCRIPTION
     PSOTLP is a C# binary PowerShell module targeting .NET Standard 2.0.
     It supports both Windows PowerShell 5.1 and PowerShell 7+. Telemetry is
-    sent synchronously over OTLP/HTTP+JSON. Headers are stored as
-    SecureString and only materialized at the request boundary.
+    sent synchronously over OTLP/HTTP (JSON, Protobuf, or NDJSON). All
+    authentication headers are supplied through the single -Headers
+    IDictionary on Connect-OTLP; values are stored as SecureString and only
+    materialized at the request boundary.
 
     Typical workflow:
 
-        Connect-OTLP -EndpointUri 'https://otel.example.com' -Header @{ Authorization = 'Bearer ...' }
+        $bearer = ConvertTo-SecureString -String 'Bearer eyJhbGciOi...' -AsPlainText -Force
+        Connect-OTLP -EndpointUri 'https://otel.example.com' `
+            -Headers @{ Authorization = $bearer } -ServiceName 'powershell-session'
 
-        Start-OTLPSession -ServiceName 'powershell-session'
         Write-OTLPLog -Body 'Starting device onboarding' -Severity Information
-        Stop-OTLPSession
+
+        Invoke-OTLPScript -ScriptBlock {
+            Get-Service | Select-Object -First 5
+        }
 
         Disconnect-OTLP
 
@@ -34,35 +41,33 @@ CMDLETS
     Get-OTLPConnection      Return the active connection view.
     Write-OTLPLog           Send a single log record.
     Send-OTLPLogBatch       Send a batch of log records.
-    Start-OTLPSession       Begin a transcript-based capture session.
-    Stop-OTLPSession        Stop and drain a capture session.
-    Get-OTLPSession         List active or completed sessions.
-    Invoke-OTLPScript       Execute a script block with stream capture.
+    Invoke-OTLPScript       Execute a script block in a hosted runspace
+                            with stream capture; supports -ImportFunctions,
+                            -ImportVariables, and -SharedState for parent
+                            scope sharing.
     Start-OTLPSpan          Start an OTLP span.
     Stop-OTLPSpan           Stop an OTLP span.
     Write-OTLPSpanEvent     Add an event to an active span.
     Send-OTLPTraceBatch     Send a batch of spans.
+    Write-OTLPMetric        Emit a single Gauge or Sum metric data point.
+    Send-OTLPMetricBatch    Send a batch of metric data points.
 
 ENVIRONMENT VARIABLES
-    PSOTLP_ENDPOINT_URI            Base OTLP endpoint.
-    PSOTLP_LOGS_ENDPOINT_URI       Override for log signal.
-    PSOTLP_TRACES_ENDPOINT_URI     Override for trace signal.
-    PSOTLP_AUTHORIZATION_HEADER    Default Authorization header value.
-    PSOTLP_BEARER_TOKEN            Default bearer token.
-    PSOTLP_API_KEY                 Default API key.
-    PSOTLP_API_KEY_HEADER_NAME     Custom API key header name.
+    PSOTLP_OTLP_ENDPOINT           Base OTLP endpoint.
+    OTEL_EXPORTER_OTLP_ENDPOINT    Standard OTel fallback for the endpoint.
     PSOTLP_SERVICE_NAME            Default service.name resource attribute.
+    OTEL_SERVICE_NAME              Standard OTel fallback for service name.
 
 SECURITY
     All header values are treated as sensitive and stored as SecureString.
-    Header values, bearer tokens, and API keys are never written to internal
-    log lines or telemetry payloads. The redaction engine scrubs Authorization
-    headers, bearer tokens, api-key key/value pairs, password-like values, and
-    PEM private key blocks from captured transcript content.
+    Header values are never written to internal log lines or telemetry
+    payloads. The redaction engine scrubs Authorization headers, bearer
+    tokens, api-key key/value pairs, password-like values, and PEM private
+    key blocks from captured script content.
 
 SEE ALSO
     Connect-OTLP
     Write-OTLPLog
-    Start-OTLPSession
     Invoke-OTLPScript
     Start-OTLPSpan
+    Write-OTLPMetric

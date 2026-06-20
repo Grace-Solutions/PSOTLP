@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
-using System.Security;
 using System.Text.RegularExpressions;
 using PSOTLP.Authentication;
 using PSOTLP.Common;
@@ -10,38 +9,17 @@ using PSOTLP.Connections;
 
 namespace PSOTLP.Cmdlets
 {
-    [Cmdlet(VerbsCommunications.Connect, "OTLP",
-        DefaultParameterSetName = NoAuthParameterSet, SupportsShouldProcess = false)]
+    [Cmdlet(VerbsCommunications.Connect, "OTLP", SupportsShouldProcess = false)]
     [OutputType(typeof(OTLPConnectionView))]
     public sealed class ConnectOTLPCommand : OTLPCmdletBase
     {
-        private const string NoAuthParameterSet = "NoAuthentication";
-        private const string BearerParameterSet = "BearerToken";
-        private const string ApiKeyParameterSet = "ApiKey";
-        private const string HeaderParameterSet = "CustomHeader";
-
-        [Parameter(ParameterSetName = NoAuthParameterSet)]
-        [Parameter(ParameterSetName = BearerParameterSet)]
-        [Parameter(ParameterSetName = ApiKeyParameterSet)]
-        [Parameter(ParameterSetName = HeaderParameterSet)]
-        public Uri EndpointUri { get; set; }
+        [Parameter] public Uri EndpointUri { get; set; }
 
         [Parameter] public Uri LogsEndpointUri { get; set; }
         [Parameter] public Uri TracesEndpointUri { get; set; }
         [Parameter] public Uri MetricsEndpointUri { get; set; }
 
-        [Parameter(Mandatory = true, ParameterSetName = BearerParameterSet)]
-        public SecureString BearerToken { get; set; }
-
-        [Parameter(Mandatory = true, ParameterSetName = ApiKeyParameterSet)]
-        [ValidateNotNullOrEmpty]
-        public string ApiKeyHeaderName { get; set; }
-
-        [Parameter(Mandatory = true, ParameterSetName = ApiKeyParameterSet)]
-        public SecureString ApiKey { get; set; }
-
-        [Parameter(Mandatory = true, ParameterSetName = HeaderParameterSet)]
-        public IDictionary Header { get; set; }
+        [Parameter] public IDictionary Headers { get; set; }
 
         [Parameter] public OTLPTransport Transport { get; set; } = OTLPTransport.Http;
         [Parameter] public OTLPEncoding Encoding { get; set; } = OTLPEncoding.Json;
@@ -56,6 +34,7 @@ namespace PSOTLP.Cmdlets
 
         [Parameter] public IDictionary ResourceAttribute { get; set; }
         [Parameter] public IDictionary LogAttribute { get; set; }
+        [Parameter] public IDictionary ScopeAttributes { get; set; }
 
         [Parameter] public Regex[] RedactPattern { get; set; }
 
@@ -79,13 +58,14 @@ namespace PSOTLP.Cmdlets
                     Encoding = Encoding,
                     Compression = Compression,
                     ServiceName = OTLPAttributeConverter.NormalizeMissing(ResolveServiceName()),
-                    ServiceNamespace = ServiceNamespace,
-                    ServiceInstanceId = string.IsNullOrWhiteSpace(ServiceInstanceId) ? Guid.NewGuid().ToString() : ServiceInstanceId,
+                    ServiceNamespace = ResolveServiceNamespace(),
+                    ServiceInstanceId = ResolveServiceInstanceId(),
                     ScopeName = ScopeName,
                     ScopeVersion = ScopeVersion,
                     EnvironmentName = EnvironmentName,
                     ResourceAttributes = HashtableToDictionary(ResourceAttribute),
                     LogAttributes = HashtableToDictionary(LogAttribute),
+                    ScopeAttributes = HashtableToDictionary(ScopeAttributes),
                     RedactPatterns = RedactPattern,
                     RetryCount = RetryCount,
                     TimeoutSeconds = TimeoutSeconds,
@@ -127,25 +107,28 @@ namespace PSOTLP.Cmdlets
             return !string.IsNullOrWhiteSpace(resolved) ? resolved : "powershell";
         }
 
+        private string ResolveServiceNamespace()
+        {
+            if (!string.IsNullOrWhiteSpace(ServiceNamespace)) { return ServiceNamespace.Trim(); }
+            return "PSOTLP";
+        }
+
+        private string ResolveServiceInstanceId()
+        {
+            if (!string.IsNullOrWhiteSpace(ServiceInstanceId)) { return ServiceInstanceId.Trim(); }
+            return Guid.NewGuid().ToString();
+        }
+
         private OTLPAuthenticationMode ResolveAuthenticationMode()
         {
-            switch (ParameterSetName)
-            {
-                case BearerParameterSet: return OTLPAuthenticationMode.BearerToken;
-                case ApiKeyParameterSet: return OTLPAuthenticationMode.ApiKey;
-                case HeaderParameterSet: return OTLPAuthenticationMode.CustomHeader;
-                default: return OTLPAuthenticationMode.None;
-            }
+            if (Headers == null || Headers.Count == 0) { return OTLPAuthenticationMode.None; }
+            return OTLPAuthenticationMode.CustomHeader;
         }
 
         private void ApplyAuthentication(OTLPConnection connection)
         {
-            if (BearerToken != null) { OTLPHeaderUtility.SetBearerToken(connection.Headers, BearerToken); }
-            if (ApiKey != null && !string.IsNullOrWhiteSpace(ApiKeyHeaderName)) { OTLPHeaderUtility.SetApiKey(connection.Headers, ApiKeyHeaderName, ApiKey); }
-            if (Header != null)
-            {
-                foreach (var pair in OTLPHeaderUtility.FromHashtable(Header)) { connection.Headers[pair.Key] = pair.Value; }
-            }
+            if (Headers == null) { return; }
+            foreach (var pair in OTLPHeaderUtility.FromHashtable(Headers)) { connection.Headers[pair.Key] = pair.Value; }
         }
 
         private static IDictionary<string, object> HashtableToDictionary(IDictionary source)

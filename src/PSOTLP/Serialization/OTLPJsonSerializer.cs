@@ -42,6 +42,11 @@ namespace PSOTLP.Serialization
             return SerializeInternal(request);
         }
 
+        public byte[] SerializeMetrics(OTLPExportMetricsServiceRequest request)
+        {
+            return SerializeInternal(request);
+        }
+
         private byte[] SerializeInternal(object payload)
         {
             try

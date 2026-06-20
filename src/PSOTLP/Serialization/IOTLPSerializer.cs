@@ -7,5 +7,6 @@ namespace PSOTLP.Serialization
         string ContentType { get; }
         byte[] SerializeLogs(OTLPExportLogsServiceRequest request);
         byte[] SerializeTraces(OTLPExportTraceServiceRequest request);
+        byte[] SerializeMetrics(OTLPExportMetricsServiceRequest request);
     }
 }
