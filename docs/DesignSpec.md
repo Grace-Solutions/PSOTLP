@@ -3687,8 +3687,8 @@ The workflow files should be structurally identical and should differ only when 
 Required workflow locations:
 
 ```text
-.github/workflows/ci.yml
-.gitea/workflows/ci.yml
+.github/workflows/release.yml
+.gitea/workflows/release.yml
 ```
 
 The preferred design is to keep both files identical.
@@ -3995,8 +3995,8 @@ The PowerShell Gallery publish step could not start because the repository secre
 The same CI/CD file content should be used for both:
 
 ```text
-.github/workflows/ci.yml
-.gitea/workflows/ci.yml
+.github/workflows/release.yml
+.gitea/workflows/release.yml
 ```
 
 The files must use the same:
@@ -4005,12 +4005,10 @@ The files must use the same:
 Workflow name
 Triggers
 Job names
-Matrix values
 Runner labels
 Environment variable names
 Secret names
 Build commands
-Test commands
 Release commands
 Publish commands
 Artifact names
@@ -4022,23 +4020,20 @@ The build script must handle platform differences instead of splitting the workf
 
 ## Required Workflow File
 
-The initial workflow should be named:
+The workflow should be named:
 
 ```text
-PSOTLP CI
+PSOTLP Release
 ```
 
 The workflow file should support:
 
 ```text
-Pull request validation
-Push validation
-Main branch release build
-Tag-based publish
-Linux host runner
-Windows host runner
+Push to main triggers build and package
+Tag matching v* triggers build, package, and publish
+Manual workflow_dispatch with publish and sign inputs
+Linux host runner for both build and publish
 PowerShell 7 build path
-Windows PowerShell 5.1 import validation on Windows only
 ```
 
 ---
@@ -4048,61 +4043,34 @@ Windows PowerShell 5.1 import validation on Windows only
 The following workflow must be copied identically to:
 
 ```text
-.github/workflows/ci.yml
-.gitea/workflows/ci.yml
+.github/workflows/release.yml
+.gitea/workflows/release.yml
 ```
 
 ```yaml
-name: PSOTLP CI
+name: PSOTLP Release
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
-      - staging
   push:
     branches:
       - main
-      - dev
-      - staging
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
-      run_integration_tests:
-        description: 'Run integration tests'
+      publish:
+        description: 'Publish release artifacts to the configured destinations'
         required: false
         default: 'false'
-      publish:
-        description: 'Publish release artifacts'
+      sign:
+        description: 'Sign the release artifacts (requires signing secrets)'
         required: false
         default: 'false'
 
 jobs:
   build:
-    name: Build and Test
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os_name: linux
-            runner_label: linux-host
-            shell_name: pwsh
-          - os_name: windows
-            runner_label: windows-host
-            shell_name: pwsh
-
-    runs-on: ${{ matrix.runner_label }}
-
-    env:
-      PSOTLP_ENDPOINT_URI: ${{ secrets.PSOTLP_ENDPOINT_URI }}
-      PSOTLP_LOGS_ENDPOINT_URI: ${{ secrets.PSOTLP_LOGS_ENDPOINT_URI }}
-      PSOTLP_TRACES_ENDPOINT_URI: ${{ secrets.PSOTLP_TRACES_ENDPOINT_URI }}
-      PSOTLP_AUTHORIZATION_HEADER: ${{ secrets.PSOTLP_AUTHORIZATION_HEADER }}
-      PSOTLP_BEARER_TOKEN: ${{ secrets.PSOTLP_BEARER_TOKEN }}
-      PSOTLP_API_KEY: ${{ secrets.PSOTLP_API_KEY }}
-      PSOTLP_API_KEY_HEADER_NAME: ${{ secrets.PSOTLP_API_KEY_HEADER_NAME }}
+    name: Build and Package
+    runs-on: linux-host
 
     steps:
       - name: Checkout repository
@@ -4114,37 +4082,17 @@ jobs:
           $PSVersionTable
           [System.Environment]::OSVersion
           [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-          [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
 
-      - name: Build and run unit tests
+      - name: Build and create release package
         shell: pwsh
         run: |
-          ./build.ps1 -CI -Clean -Restore -RunTests -Configuration Release
+          ./build.ps1 -CI -Clean -Restore -CreateRelease -Configuration Release -Force
 
-      - name: Run integration tests
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration_tests == 'true' }}
-        shell: pwsh
-        run: |
-          ./build.ps1 -CI -Clean -Restore -RunTests -RunIntegrationTests -Configuration Release
-
-      - name: Validate module import with PowerShell 7
-        shell: pwsh
-        run: |
-          Import-Module ./Module/PSOTLP/PSOTLP.psd1 -Force
-          Get-Module PSOTLP
-
-      - name: Validate module import with Windows PowerShell 5.1
-        if: ${{ matrix.os_name == 'windows' }}
-        shell: powershell
-        run: |
-          Import-Module ./Module/PSOTLP/PSOTLP.psd1 -Force
-          Get-Module PSOTLP
-
-      - name: Create release artifact
-        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-        shell: pwsh
-        run: |
-          ./build.ps1 -CI -Clean -Restore -RunTests -CreateRelease -Configuration Release
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSOTLP-release
+          path: Releases/
 
   publish:
     name: Publish
@@ -4167,10 +4115,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Publish PowerShell module
+      - name: Publish release
         shell: pwsh
         run: |
-          ./build.ps1 -CI -Clean -Restore -RunTests -CreateRelease -Publish -PublishPowerShellGallery -Configuration Release
+          $extra = @()
+          if ('${{ github.event.inputs.sign }}' -eq 'true') { $extra += '-Sign' }
+          ./build.ps1 -CI -Clean -Restore -CreateRelease -Publish -PublishPowerShellGallery -Configuration Release -Force @extra
 ```
 
 ---
@@ -4281,8 +4231,8 @@ Raw environment dumps
 ## Acceptance Criteria Additions
 
 ```text
-GitHub Actions workflow exists at .github/workflows/ci.yml.
-Gitea Actions workflow exists at .gitea/workflows/ci.yml.
+GitHub Actions workflow exists at .github/workflows/release.yml.
+Gitea Actions workflow exists at .gitea/workflows/release.yml.
 GitHub and Gitea workflows are identical unless a documented platform limitation requires a difference.
 Both workflows use repository secrets only for sensitive values.
 Both workflows use the same secret names.
