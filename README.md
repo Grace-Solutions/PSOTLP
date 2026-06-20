@@ -8,8 +8,10 @@ Windows PowerShell 5.1 or PowerShell 7+.
 
 - Synchronous C# (no `async`/`await`).
 - Single `-Headers` dictionary on `Connect-OTLP` carries every authentication
-  header (bearer tokens, API keys, custom headers); every value is stored as
-  `SecureString`.
+  header (bearer tokens, API keys, custom headers). Pass plain `String` or
+  `SecureString` values — plain strings are converted to `SecureString` at
+  parameter binding and are only materialized as plaintext at the HTTP
+  request boundary.
 - Centralized redaction with default patterns plus user-supplied `Regex[]`.
 - In-memory script capture via `Invoke-OTLPScript` — no transcript, no file
   locks, no interference with any transcript the caller may already have
@@ -75,12 +77,15 @@ and authenticates with the `authorization` header set to the raw API key
 and the
 [cURL walkthrough](https://www.hyperdx.io/blog/testing-sending-opentelemetry-events-curl).
 
-```powershell
-$apiKey = Read-Host -AsSecureString -Prompt 'HyperDX API key'
+Plain-string values in `-Headers` are accepted; PSOTLP converts them to
+`SecureString` at parameter binding. Use a `SecureString` (for example from
+`Read-Host -AsSecureString`) when you want to keep the value out of the
+session's command history or transcript.
 
+```powershell
 Connect-OTLP `
     -EndpointUri 'https://in-otel.hyperdx.io' `
-    -Headers @{ authorization = $apiKey } `
+    -Headers @{ authorization = $Env:HYPERDX_API_KEY } `
     -ServiceName 'my-script' `
     -Compression Gzip
 
@@ -105,13 +110,9 @@ Rootprint requires `Content-Type: application/x-protobuf` at `/v1/logs` and
 rejects JSON with HTTP 415. Use `-Encoding Protobuf`:
 
 ```powershell
-$ingestToken = Read-Host -AsSecureString -Prompt 'Rootprint ingest token'
-$bearer      = ConvertTo-SecureString -String ('Bearer ' +
-    [System.Net.NetworkCredential]::new('', $ingestToken).Password) -AsPlainText -Force
-
 Connect-OTLP `
     -EndpointUri 'https://rootprint.example.com' `
-    -Headers @{ Authorization = $bearer } `
+    -Headers @{ Authorization = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)" } `
     -ServiceName 'my-script' `
     -Encoding Protobuf `
     -Compression Gzip
@@ -131,13 +132,9 @@ single snake_case JSON document terminated by `\n`. NDJSON is logs-only and
 will throw on trace export.
 
 ```powershell
-$ingestToken = Read-Host -AsSecureString -Prompt 'Rootprint ingest token'
-$bearer      = ConvertTo-SecureString -String ('Bearer ' +
-    [System.Net.NetworkCredential]::new('', $ingestToken).Password) -AsPlainText -Force
-
 Connect-OTLP `
     -EndpointUri 'https://rootprint.example.com' `
-    -Headers @{ Authorization = $bearer } `
+    -Headers @{ Authorization = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)" } `
     -ServiceName 'my-script' `
     -Encoding NDJson
 
