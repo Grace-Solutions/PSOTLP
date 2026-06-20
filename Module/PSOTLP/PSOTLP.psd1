@@ -1,6 +1,6 @@
 @{
     RootModule = 'PSOTLP.psm1'
-    ModuleVersion = '2026.06.20.1452'
+    ModuleVersion = '2026.06.20.1501'
     GUID = '0fae6770-1d6a-4f1d-9a3a-1a93b96a3a01'
     Author = 'Grace Solutions'
     CompanyName = 'Grace Solutions'
@@ -32,7 +32,7 @@
             Tags = @('OpenTelemetry','OTLP','Logs','Tracing','PowerShell','Observability','GraceSolutions')
             ProjectUri = ''
             ReleaseNotes = ''
-            CommitHash = '1792b2a2bcef4f7a7988a2a6fe6c621077ccf618'
+            CommitHash = 'eefe17dbe97ab7e148ee6891a852c358ca49b3a1'
         }
     }
 }

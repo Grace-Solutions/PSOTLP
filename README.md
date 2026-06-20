@@ -7,7 +7,7 @@ Windows PowerShell 5.1 or PowerShell 7+.
 ## Highlights
 
 - Synchronous C# (no `async`/`await`).
-- Single `-Header` dictionary on `Connect-OTLP` carries every authentication
+- Single `-Headers` dictionary on `Connect-OTLP` carries every authentication
   header (bearer tokens, API keys, custom headers); every value is stored as
   `SecureString`.
 - Centralized redaction with default patterns plus user-supplied `Regex[]`.
@@ -80,7 +80,7 @@ $apiKey = Read-Host -AsSecureString -Prompt 'HyperDX API key'
 
 Connect-OTLP `
     -EndpointUri 'https://in-otel.hyperdx.io' `
-    -Header @{ authorization = $apiKey } `
+    -Headers @{ authorization = $apiKey } `
     -ServiceName 'my-script' `
     -Compression Gzip
 
@@ -111,7 +111,7 @@ $bearer      = ConvertTo-SecureString -String ('Bearer ' +
 
 Connect-OTLP `
     -EndpointUri 'https://rootprint.example.com' `
-    -Header @{ Authorization = $bearer } `
+    -Headers @{ Authorization = $bearer } `
     -ServiceName 'my-script' `
     -Encoding Protobuf `
     -Compression Gzip
@@ -137,7 +137,7 @@ $bearer      = ConvertTo-SecureString -String ('Bearer ' +
 
 Connect-OTLP `
     -EndpointUri 'https://rootprint.example.com' `
-    -Header @{ Authorization = $bearer } `
+    -Headers @{ Authorization = $bearer } `
     -ServiceName 'my-script' `
     -Encoding NDJson
 

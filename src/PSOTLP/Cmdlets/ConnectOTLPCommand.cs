@@ -19,7 +19,7 @@ namespace PSOTLP.Cmdlets
         [Parameter] public Uri TracesEndpointUri { get; set; }
         [Parameter] public Uri MetricsEndpointUri { get; set; }
 
-        [Parameter] public IDictionary Header { get; set; }
+        [Parameter] public IDictionary Headers { get; set; }
 
         [Parameter] public OTLPTransport Transport { get; set; } = OTLPTransport.Http;
         [Parameter] public OTLPEncoding Encoding { get; set; } = OTLPEncoding.Json;
@@ -34,6 +34,7 @@ namespace PSOTLP.Cmdlets
 
         [Parameter] public IDictionary ResourceAttribute { get; set; }
         [Parameter] public IDictionary LogAttribute { get; set; }
+        [Parameter] public IDictionary ScopeAttributes { get; set; }
 
         [Parameter] public Regex[] RedactPattern { get; set; }
 
@@ -64,6 +65,7 @@ namespace PSOTLP.Cmdlets
                     EnvironmentName = EnvironmentName,
                     ResourceAttributes = HashtableToDictionary(ResourceAttribute),
                     LogAttributes = HashtableToDictionary(LogAttribute),
+                    ScopeAttributes = HashtableToDictionary(ScopeAttributes),
                     RedactPatterns = RedactPattern,
                     RetryCount = RetryCount,
                     TimeoutSeconds = TimeoutSeconds,
@@ -119,14 +121,14 @@ namespace PSOTLP.Cmdlets
 
         private OTLPAuthenticationMode ResolveAuthenticationMode()
         {
-            if (Header == null || Header.Count == 0) { return OTLPAuthenticationMode.None; }
+            if (Headers == null || Headers.Count == 0) { return OTLPAuthenticationMode.None; }
             return OTLPAuthenticationMode.CustomHeader;
         }
 
         private void ApplyAuthentication(OTLPConnection connection)
         {
-            if (Header == null) { return; }
-            foreach (var pair in OTLPHeaderUtility.FromHashtable(Header)) { connection.Headers[pair.Key] = pair.Value; }
+            if (Headers == null) { return; }
+            foreach (var pair in OTLPHeaderUtility.FromHashtable(Headers)) { connection.Headers[pair.Key] = pair.Value; }
         }
 
         private static IDictionary<string, object> HashtableToDictionary(IDictionary source)

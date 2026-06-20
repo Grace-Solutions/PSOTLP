@@ -14,21 +14,22 @@ Opens a connection to an OTLP endpoint and stores it as the active connection fo
 
 ```
 Connect-OTLP [-EndpointUri <Uri>] [-LogsEndpointUri <Uri>] [-TracesEndpointUri <Uri>]
- [-MetricsEndpointUri <Uri>] [-Header <IDictionary>] [-Transport <OTLPTransport>]
+ [-MetricsEndpointUri <Uri>] [-Headers <IDictionary>] [-Transport <OTLPTransport>]
  [-Encoding <OTLPEncoding>] [-Compression <OTLPCompression>] [-ServiceName <String>]
  [-ServiceNamespace <String>] [-ServiceInstanceId <String>] [-ScopeName <String>]
- [-ScopeVersion <String>] [-EnvironmentName <String>] [-ResourceAttribute <IDictionary>]
- [-LogAttribute <IDictionary>] [-RedactPattern <Regex[]>] [-RetryCount <Int32>]
- [-TimeoutSeconds <Int32>] [-PassThru] [<CommonParameters>]
+ [-ScopeVersion <String>] [-ScopeAttributes <IDictionary>] [-EnvironmentName <String>]
+ [-ResourceAttribute <IDictionary>] [-LogAttribute <IDictionary>]
+ [-RedactPattern <Regex[]>] [-RetryCount <Int32>] [-TimeoutSeconds <Int32>] [-PassThru]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 `Connect-OTLP` builds and stores an `OTLPConnection` that subsequent cmdlets reuse. All
 authentication headers (bearer tokens, API keys, vendor-specific values) are supplied through
-the single `-Header` dictionary. `-Header` accepts any `IDictionary` implementation
+the single `-Headers` dictionary. `-Headers` accepts any `IDictionary` implementation
 (`Hashtable`, `OrderedDictionary`, etc.); values may be `String` or `SecureString`.
 Plain-string values are converted to `SecureString` at parameter binding, and header values
-are only materialized when a request is sent.
+are only materialized as plaintext at the HTTP request boundary.
 
 When `-ServiceNamespace` is not supplied, `Connect-OTLP` defaults `service.namespace` to
 `PSOTLP`. When `-ServiceInstanceId` is not supplied, a fresh GUID is generated for the
@@ -42,11 +43,16 @@ connection lifetime. When `-EndpointUri` is not supplied, the value is resolved 
 ```powershell
 $ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     $ConnectOTLPParameters.EndpointUri = [Uri]'https://otel.example.com'
-    $ConnectOTLPParameters.Header = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $ConnectOTLPParameters.Header['Authorization'] = ConvertTo-SecureString -String ('Bearer ' + $env:OTEL_BEARER_TOKEN) -AsPlainText -Force
-        $ConnectOTLPParameters.Header['x-tenant-id'] = 'personal'
+    $ConnectOTLPParameters.Headers = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.Headers['Authorization'] = ConvertTo-SecureString -String ('Bearer ' + $env:OTEL_BEARER_TOKEN) -AsPlainText -Force
+        $ConnectOTLPParameters.Headers['x-tenant-id'] = 'personal'
     $ConnectOTLPParameters.ServiceName = 'powershell-installer'
     $ConnectOTLPParameters.ServiceNamespace = 'GraceSolutions'
+    $ConnectOTLPParameters.ScopeName = 'PSOTLP'
+    $ConnectOTLPParameters.ScopeVersion = '2026.06.20'
+    $ConnectOTLPParameters.ScopeAttributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.ScopeAttributes['psotlp.channel'] = 'installer'
+        $ConnectOTLPParameters.ScopeAttributes['psotlp.host'] = $env:COMPUTERNAME
     $ConnectOTLPParameters.EnvironmentName = 'production'
     $ConnectOTLPParameters.Transport = [PSOTLP.Common.OTLPTransport]::Http
     $ConnectOTLPParameters.Encoding = [PSOTLP.Common.OTLPEncoding]::Json
@@ -129,11 +135,11 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Header
+### -Headers
 `IDictionary` of HTTP headers applied to every OTLP request. Use this for any authentication
 header (`Authorization`, `x-api-key`, etc.) and for vendor-specific routing headers. Values
 may be `String` or `SecureString`; plain-string values are converted to `SecureString` at
-parameter binding.
+parameter binding and only materialized as plaintext at the HTTP request boundary.
 
 ```yaml
 Type: System.Collections.IDictionary
@@ -261,6 +267,23 @@ Instrumentation-scope version on emitted records.
 
 ```yaml
 Type: System.String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ScopeAttributes
+`IDictionary` of attributes attached to the OTLP `InstrumentationScope` block on every
+emitted record. Use this for module-level metadata that should ride alongside the scope
+name and version (for example a channel, build flavor, or originating host).
+
+```yaml
+Type: System.Collections.IDictionary
 Parameter Sets: (All)
 Aliases:
 

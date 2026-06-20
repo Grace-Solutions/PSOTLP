@@ -11,7 +11,7 @@ LONG DESCRIPTION
     PSOTLP is a C# binary PowerShell module targeting .NET Standard 2.0.
     It supports both Windows PowerShell 5.1 and PowerShell 7+. Telemetry is
     sent synchronously over OTLP/HTTP (JSON, Protobuf, or NDJSON). All
-    authentication headers are supplied through the single -Header
+    authentication headers are supplied through the single -Headers
     IDictionary on Connect-OTLP; values are stored as SecureString and only
     materialized at the request boundary.
 
@@ -19,7 +19,7 @@ LONG DESCRIPTION
 
         $bearer = ConvertTo-SecureString -String 'Bearer eyJhbGciOi...' -AsPlainText -Force
         Connect-OTLP -EndpointUri 'https://otel.example.com' `
-            -Header @{ Authorization = $bearer } -ServiceName 'powershell-session'
+            -Headers @{ Authorization = $bearer } -ServiceName 'powershell-session'
 
         Write-OTLPLog -Body 'Starting device onboarding' -Severity Information
 

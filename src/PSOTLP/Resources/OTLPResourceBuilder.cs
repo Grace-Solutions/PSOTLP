@@ -40,7 +40,7 @@ namespace PSOTLP.Resources
 
         public static OTLPInstrumentationScope BuildScope(OTLPConnection connection)
         {
-            return new OTLPInstrumentationScope
+            var scope = new OTLPInstrumentationScope
             {
                 Name = OTLPAttributeConverter.NormalizeMissing(
                     connection != null && !string.IsNullOrWhiteSpace(connection.ScopeName)
@@ -51,6 +51,13 @@ namespace PSOTLP.Resources
                         ? connection.ScopeVersion
                         : OTLPModuleInfo.Version)
             };
+
+            if (connection != null && connection.ScopeAttributes != null && connection.ScopeAttributes.Count > 0)
+            {
+                scope.Attributes = OTLPAttributeConverter.ToKeyValueList(connection.ScopeAttributes);
+            }
+
+            return scope;
         }
 
         private static IDictionary<string, object> GetModuleAttributes(OTLPConnection connection)
