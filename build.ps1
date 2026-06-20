@@ -34,7 +34,7 @@
     Publish the staged release package to one or more destinations.
 
 .PARAMETER PublishPowerShellGallery
-    Push the release to the PowerShell Gallery (requires POWERSHELL_GALLERY_API_KEY).
+    Push the release to the PowerShell Gallery (requires PSGALLERY_API_KEY).
 
 .PARAMETER PublishNuGet
     Push the release to a NuGet feed (requires NUGET_API_KEY and NUGET_SOURCE_URI).

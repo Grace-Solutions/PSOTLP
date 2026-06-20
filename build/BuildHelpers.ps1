@@ -305,9 +305,9 @@ function Publish-OTLPRelease {
         throw "Release staging folder not found: $releaseModule. Run with -CreateRelease first."
     }
     if ($PublishPowerShellGallery) {
-        $key = [System.Environment]::GetEnvironmentVariable('POWERSHELL_GALLERY_API_KEY')
+        $key = [System.Environment]::GetEnvironmentVariable('PSGALLERY_API_KEY')
         if ([string]::IsNullOrWhiteSpace($key)) {
-            throw "The PowerShell Gallery publish step could not start because the repository secret POWERSHELL_GALLERY_API_KEY is not available."
+            throw "The PowerShell Gallery publish step could not start because the repository secret PSGALLERY_API_KEY is not available."
         }
         Write-Host "Publishing PSOTLP $($Context.Version) to the PowerShell Gallery. Please Wait..."
         Publish-Module -Path $releaseModule -NuGetApiKey $key -Repository 'PSGallery' -Force -ErrorAction Stop

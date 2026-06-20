@@ -3742,7 +3742,7 @@ The following repository secrets must be supported.
 ### PowerShell Gallery Publishing
 
 ```text
-POWERSHELL_GALLERY_API_KEY
+PSGALLERY_API_KEY
 ```
 
 ### NuGet Publishing, Optional
@@ -3841,7 +3841,7 @@ env:
   PSOTLP_LOGS_ENDPOINT_URI: ${{ secrets.PSOTLP_LOGS_ENDPOINT_URI }}
   PSOTLP_TRACES_ENDPOINT_URI: ${{ secrets.PSOTLP_TRACES_ENDPOINT_URI }}
   PSOTLP_BEARER_TOKEN: ${{ secrets.PSOTLP_BEARER_TOKEN }}
-  POWERSHELL_GALLERY_API_KEY: ${{ secrets.POWERSHELL_GALLERY_API_KEY }}
+  PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
 ```
 
 The build script must never print these values.
@@ -3985,7 +3985,7 @@ If a secret is missing, the build script must fail with a plain English message 
 Example:
 
 ```text
-The PowerShell Gallery publish step could not start because the repository secret POWERSHELL_GALLERY_API_KEY is not available.
+The PowerShell Gallery publish step could not start because the repository secret PSGALLERY_API_KEY is not available.
 ```
 
 ---
@@ -4153,10 +4153,10 @@ jobs:
 
     if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') }}
 
-    runs-on: windows-host
+    runs-on: linux-host
 
     env:
-      POWERSHELL_GALLERY_API_KEY: ${{ secrets.POWERSHELL_GALLERY_API_KEY }}
+      PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
       NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       NUGET_SOURCE_URI: ${{ secrets.NUGET_SOURCE_URI }}
       SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
@@ -4233,13 +4233,13 @@ and the required repository secret is present
 PowerShell Gallery publishing requires:
 
 ```text
-POWERSHELL_GALLERY_API_KEY
+PSGALLERY_API_KEY
 ```
 
 If missing, fail with:
 
 ```text
-The PowerShell Gallery publish step could not start because the repository secret POWERSHELL_GALLERY_API_KEY is not available.
+The PowerShell Gallery publish step could not start because the repository secret PSGALLERY_API_KEY is not available.
 ```
 
 Do not publish from pull request workflows.
@@ -4293,7 +4293,7 @@ Both workflows call build.ps1 instead of duplicating build logic.
 Pull requests build and test only.
 Publishing does not run for pull requests.
 Publishing runs only for tags or explicit manual dispatch.
-PowerShell Gallery publishing uses POWERSHELL_GALLERY_API_KEY.
+PowerShell Gallery publishing uses PSGALLERY_API_KEY.
 Secrets are passed as environment variables.
 Secrets are never echoed.
 Secrets are never stored in artifacts.
