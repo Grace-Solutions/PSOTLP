@@ -11,7 +11,8 @@ namespace PSOTLP.Common
     public enum OTLPEncoding
     {
         Json = 0,
-        Protobuf = 1
+        Protobuf = 1,
+        NDJson = 2
     }
 
     public enum OTLPCompression
@@ -23,9 +24,7 @@ namespace PSOTLP.Common
     public enum OTLPAuthenticationMode
     {
         None = 0,
-        BearerToken = 1,
-        ApiKey = 2,
-        CustomHeader = 3
+        CustomHeader = 1
     }
 
     public enum OTLPSignalType
@@ -66,5 +65,18 @@ namespace PSOTLP.Common
         Unset = 0,
         Ok = 1,
         Error = 2
+    }
+
+    public enum OTLPMetricType
+    {
+        Gauge = 0,
+        Sum = 1
+    }
+
+    public enum OTLPAggregationTemporality
+    {
+        Unspecified = 0,
+        Delta = 1,
+        Cumulative = 2
     }
 }

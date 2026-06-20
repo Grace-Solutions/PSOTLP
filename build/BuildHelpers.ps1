@@ -69,6 +69,17 @@ function Invoke-OTLPBuildCompile {
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit code $LASTEXITCODE)." }
 }
 
+# Assemblies the build produces but the module must never ship. These are excluded from
+# both the staged module folder and the release package.
+#   System.Management.Automation.dll: reference assembly from PowerShellStandard.Library; the
+#       PowerShell host provides the real implementation at runtime.
+#   System.CodeDom.dll: only used by WMI code-generation APIs (ManagementClass.GetStronglyTypedClassCode)
+#       which OTLPWindowsInventory does not invoke.
+$script:OTLPExcludedRuntimeAssemblies = @(
+    'System.Management.Automation.dll',
+    'System.CodeDom.dll'
+)
+
 function Publish-OTLPModuleAssets {
     [CmdletBinding()] param([Parameter(Mandatory)] $Context, [switch]$Force)
     if (-not $Context.ModuleBinDir.Exists) { $Context.ModuleBinDir.Create() | Out-Null }
@@ -79,11 +90,26 @@ function Publish-OTLPModuleAssets {
     $source = $sourceCandidates | Where-Object { [System.IO.Directory]::Exists($_) } | Select-Object -First 1
     if (-not $source) { throw "Build output not found in any of: $($sourceCandidates -join ', ')" }
 
-    Get-ChildItem -Path $source -Filter '*.dll' -File | ForEach-Object {
+    $excluded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $script:OTLPExcludedRuntimeAssemblies) { [void]$excluded.Add($name) }
+    $staged = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    Get-ChildItem -Path $source -Filter '*.dll' -File | Where-Object { -not $excluded.Contains($_.Name) } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination ([System.IO.Path]::Combine($Context.ModuleBinDir.FullName, $_.Name)) -Force
+        [void]$staged.Add($_.Name)
     }
-    Get-ChildItem -Path $source -Filter '*.pdb' -File -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem -Path $source -Filter '*.pdb' -File -ErrorAction SilentlyContinue | Where-Object {
+        -not $excluded.Contains([System.IO.Path]::ChangeExtension($_.Name, '.dll'))
+    } | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination ([System.IO.Path]::Combine($Context.ModuleBinDir.FullName, $_.Name)) -Force
+        [void]$staged.Add($_.Name)
+    }
+
+    Get-ChildItem -Path $Context.ModuleBinDir.FullName -File | Where-Object {
+        ($_.Extension -eq '.dll' -or $_.Extension -eq '.pdb') -and -not $staged.Contains($_.Name)
+    } | ForEach-Object {
+        Write-Verbose "Removing stale staged asset $($_.Name)"
+        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -113,7 +139,9 @@ function Write-OTLPModuleManifest {
         'Start-OTLPSpan',
         'Stop-OTLPSpan',
         'Write-OTLPSpanEvent',
-        'Send-OTLPTraceBatch'
+        'Send-OTLPTraceBatch',
+        'Write-OTLPMetric',
+        'Send-OTLPMetricBatch'
     )
     AliasesToExport = @()
     FormatsToProcess = @('PSOTLP.Format.ps1xml')
@@ -153,6 +181,35 @@ if ([System.IO.File]::Exists($FormatPath.FullName)) {
 }
 '@
     [System.IO.File]::WriteAllText($loaderPath, $contents, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Update-OTLPExternalHelp {
+    [CmdletBinding()] param([Parameter(Mandatory)] $Context)
+    $docsDir = [System.IO.DirectoryInfo]([System.IO.Path]::Combine($Context.RepoRoot.FullName, 'docs'))
+    if (-not $docsDir.Exists) { return }
+
+    if (-not (Get-Module -ListAvailable -Name platyPS)) {
+        Write-Warning "platyPS is not installed. Skipping external help generation. Install with: Install-Module -Name platyPS -Scope CurrentUser"
+        return
+    }
+    Import-Module platyPS -ErrorAction Stop
+
+    $helpDir = [System.IO.DirectoryInfo]([System.IO.Path]::Combine($Context.ModuleBinDir.FullName, 'en-US'))
+    if (-not $helpDir.Exists) { $helpDir.Create() | Out-Null }
+
+    $cmdletDocs = Get-ChildItem -Path $docsDir.FullName -Filter '*.md' -File |
+        Where-Object { $_.BaseName -notmatch '^(about_|DesignSpec)' }
+    if ($cmdletDocs.Count -eq 0) { return }
+
+    Write-Host "Generating PSOTLP external help (MAML) from $($cmdletDocs.Count) markdown files. Please Wait..."
+    $null = New-ExternalHelp -Path ($cmdletDocs.FullName) -OutputPath $helpDir.FullName -Force -ErrorAction Stop
+
+    $aboutSource = [System.IO.Path]::Combine($docsDir.FullName, 'about_PSOTLP.help.txt')
+    if ([System.IO.File]::Exists($aboutSource)) {
+        $aboutDest = [System.IO.Path]::Combine($helpDir.FullName, 'about_PSOTLP.help.txt')
+        Copy-Item -Path $aboutSource -Destination $aboutDest -Force
+    }
+    Write-Host "PSOTLP external help generation was successful."
 }
 
 function Update-OTLPChangeLog {

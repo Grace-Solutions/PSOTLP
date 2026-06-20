@@ -61,7 +61,7 @@ namespace PSOTLP.Cmdlets
                 EnrichFromActiveSpan(record);
 
                 WriteVerboseLine("Attempting to queue OTLP log record. Please Wait...");
-                var exporter = BuildExporter();
+                var exporter = BuildExporter(connection);
                 exporter.Export(connection, new List<OTLPLogRecord> { record });
                 WriteVerboseLine("OTLP log record queue operation was successful.");
 
@@ -99,11 +99,11 @@ namespace PSOTLP.Cmdlets
             };
         }
 
-        private IOTLPLogExporter BuildExporter()
+        private IOTLPLogExporter BuildExporter(OTLPConnection connection)
         {
             var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
-            var serializer = new OTLPJsonSerializer();
-            var redaction = new OTLPRedactionEngine();
+            var serializer = OTLPSerializerFactory.Create(connection != null ? connection.Encoding : OTLPEncoding.Json);
+            var redaction = new OTLPRedactionEngine(connection != null ? connection.RedactPatterns : null);
             return new OTLPLogExporter(http, serializer, redaction, Logger);
         }
 

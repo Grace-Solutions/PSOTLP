@@ -17,12 +17,17 @@ namespace PSOTLP.Cmdlets
     /// <summary>
     /// Executes a script block in a controlled runspace, tapping every PowerShell stream via
     /// PSDataCollection events. Captured records are queued and drained to the OTLP log exporter.
-    /// Synchronous: uses PowerShell.Invoke() and Thread-Sleep loops only.
+    /// Synchronous: uses PowerShell.Invoke() and Thread-Sleep loops only. Caller-scope functions
+    /// and variables can be copied into the child runspace via -ImportFunctions and
+    /// -ImportVariables, and -SharedState injects a $SharedState dictionary (typically a
+    /// [hashtable]::Synchronized) so the parent and child can exchange data by reference.
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "OTLPScript")]
     [OutputType(typeof(PSObject))]
     public sealed class InvokeOTLPScriptCommand : OTLPCmdletBase
     {
+        public const string SharedStateVariableName = "SharedState";
+
         [Parameter(Mandatory = true, Position = 0)]
         public ScriptBlock ScriptBlock { get; set; }
 
@@ -31,6 +36,9 @@ namespace PSOTLP.Cmdlets
         [Parameter] public string ServiceName { get; set; }
         [Parameter] public IDictionary Attribute { get; set; }
         [Parameter] [ValidateRange(1, 10000)] public int BatchSize { get; set; } = 100;
+        [Parameter] public SwitchParameter ImportFunctions { get; set; }
+        [Parameter] public SwitchParameter ImportVariables { get; set; }
+        [Parameter] public IDictionary SharedState { get; set; }
         [Parameter] public SwitchParameter PassThru { get; set; }
 
         protected override void ProcessRecord()
@@ -70,7 +78,8 @@ namespace PSOTLP.Cmdlets
 
         private System.Collections.ObjectModel.Collection<PSObject> ExecuteScript(OTLPSession session, OTLPSessionQueue queue, OTLPRedactionEngine redaction, IDictionary<string, object> attributes)
         {
-            using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
+            var iss = BuildInitialSessionState();
+            using (var runspace = RunspaceFactory.CreateRunspace(iss))
             {
                 runspace.Open();
                 using (var ps = PowerShell.Create())
@@ -96,6 +105,64 @@ namespace PSOTLP.Cmdlets
             }
         }
 
+        private InitialSessionState BuildInitialSessionState()
+        {
+            var iss = InitialSessionState.CreateDefault();
+
+            if (ImportFunctions.IsPresent) { CopyFunctionsFromCaller(iss); }
+            if (ImportVariables.IsPresent) { CopyVariablesFromCaller(iss); }
+
+            if (SharedState != null)
+            {
+                iss.Variables.Add(new SessionStateVariableEntry(
+                    SharedStateVariableName,
+                    SharedState,
+                    "Shared dictionary visible to both Invoke-OTLPScript caller and child runspace."));
+            }
+
+            return iss;
+        }
+
+        private void CopyFunctionsFromCaller(InitialSessionState iss)
+        {
+            var results = InvokeCommand.InvokeScript("Get-ChildItem -Path function: -ErrorAction SilentlyContinue");
+            if (results == null) { return; }
+            foreach (var psObject in results)
+            {
+                if (psObject == null) { continue; }
+                var fn = psObject.BaseObject as FunctionInfo;
+                if (fn == null || string.IsNullOrEmpty(fn.Name) || string.IsNullOrEmpty(fn.Definition)) { continue; }
+                try { iss.Commands.Add(new SessionStateFunctionEntry(fn.Name, fn.Definition)); }
+                catch (Exception ex) { WriteWarningLine("Skipped function '" + fn.Name + "': " + ex.Message); }
+            }
+        }
+
+        private void CopyVariablesFromCaller(InitialSessionState iss)
+        {
+            var results = InvokeCommand.InvokeScript("Get-Variable -ErrorAction SilentlyContinue");
+            if (results == null) { return; }
+            foreach (var psObject in results)
+            {
+                if (psObject == null) { continue; }
+                var variable = psObject.BaseObject as PSVariable;
+                if (variable == null || string.IsNullOrEmpty(variable.Name)) { continue; }
+                if (AutomaticVariableNames.Contains(variable.Name)) { continue; }
+                if (SharedState != null && string.Equals(variable.Name, SharedStateVariableName, StringComparison.OrdinalIgnoreCase)) { continue; }
+                try { iss.Variables.Add(new SessionStateVariableEntry(variable.Name, variable.Value, variable.Description)); }
+                catch (Exception ex) { WriteWarningLine("Skipped variable '" + variable.Name + "': " + ex.Message); }
+            }
+        }
+
+        private static readonly HashSet<string> AutomaticVariableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "?", "^", "$", "_", "args", "ConsoleFileName", "Error", "Event", "EventArgs",
+            "EventSubscriber", "ExecutionContext", "false", "foreach", "HOME", "Host",
+            "input", "LASTEXITCODE", "Matches", "MyInvocation", "NestedPromptLevel", "null",
+            "OutputEncoding", "PID", "PROFILE", "PSBoundParameters", "PSCmdlet", "PSCommandPath",
+            "PSCulture", "PSDebugContext", "PSHOME", "PSItem", "PSScriptRoot", "PSSenderInfo",
+            "PSUICulture", "PSVersionTable", "PWD", "ShellId", "StackTrace", "switch", "this", "true"
+        };
+
         private void FlushQueue(OTLPConnection connection, OTLPSessionQueue queue, OTLPSession session)
         {
             if (queue.Count == 0) { return; }
@@ -115,7 +182,7 @@ namespace PSOTLP.Cmdlets
         private IOTLPLogExporter BuildExporter(OTLPConnection connection)
         {
             var http = new OTLPHttpClient(Logger, new OTLPRetryPolicy());
-            var serializer = new OTLPJsonSerializer();
+            var serializer = OTLPSerializerFactory.Create(connection != null ? connection.Encoding : OTLPEncoding.Json);
             var redaction = new OTLPRedactionEngine(connection != null ? connection.RedactPatterns : null);
             return new OTLPLogExporter(http, serializer, redaction, Logger);
         }

@@ -13,4 +13,9 @@ namespace PSOTLP.Exporters
     {
         OTLPExportResult Export(OTLPConnection connection, IList<OTLPSpan> spans);
     }
+
+    public interface IOTLPMetricExporter
+    {
+        OTLPExportResult Export(OTLPConnection connection, IList<OTLPMetric> metrics);
+    }
 }

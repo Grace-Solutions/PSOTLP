@@ -17,20 +17,23 @@ namespace PSOTLP.Errors
         {
             if (logger == null || details == null) { return; }
 
-            logger.Error(Component, "Operation failed: " + (details.Operation ?? "unspecified"));
-            if (!string.IsNullOrEmpty(details.Component)) { logger.Error(Component, "Error Component: " + details.Component); }
-            if (!string.IsNullOrEmpty(details.Message)) { logger.Error(Component, "Error Message: " + details.Message); }
-            if (!string.IsNullOrEmpty(details.ExceptionType)) { logger.Error(Component, "Exception Type: " + details.ExceptionType); }
-            if (!string.IsNullOrEmpty(details.InnerExceptionMessage)) { logger.Error(Component, "Inner Exception: " + details.InnerExceptionMessage); }
-            if (details.HttpStatusCode.HasValue) { logger.Error(Component, "HTTP Status Code: " + details.HttpStatusCode.Value); }
-            if (!string.IsNullOrEmpty(details.HttpReasonPhrase)) { logger.Error(Component, "HTTP Reason Phrase: " + details.HttpReasonPhrase); }
-            if (details.RetryAttempt.HasValue) { logger.Error(Component, "Retry Attempts: " + details.RetryAttempt.Value); }
-            if (!string.IsNullOrEmpty(details.EndpointName)) { logger.Error(Component, "Endpoint Name: " + details.EndpointName); }
-            if (details.EndpointUri != null) { logger.Error(Component, "Endpoint URI: " + OTLPUriBuilder.Sanitize(details.EndpointUri)); }
-            if (details.SignalType.HasValue) { logger.Error(Component, "Signal Type: " + details.SignalType.Value); }
-            if (details.Encoding.HasValue) { logger.Error(Component, "Encoding: " + details.Encoding.Value); }
-            if (details.Compression.HasValue) { logger.Error(Component, "Compression: " + details.Compression.Value); }
-            if (details.SerializationErrorPosition.HasValue) { logger.Error(Component, "Serialization Position: " + details.SerializationErrorPosition.Value); }
+            var builder = new System.Text.StringBuilder();
+            builder.Append("Operation failed: ").Append(details.Operation ?? "unspecified");
+            if (!string.IsNullOrEmpty(details.Component)) { builder.Append(Environment.NewLine).Append("Error Component: ").Append(details.Component); }
+            if (!string.IsNullOrEmpty(details.Message)) { builder.Append(Environment.NewLine).Append("Error Message: ").Append(details.Message); }
+            if (!string.IsNullOrEmpty(details.ExceptionType)) { builder.Append(Environment.NewLine).Append("Exception Type: ").Append(details.ExceptionType); }
+            if (!string.IsNullOrEmpty(details.InnerExceptionMessage)) { builder.Append(Environment.NewLine).Append("Inner Exception: ").Append(details.InnerExceptionMessage); }
+            if (details.HttpStatusCode.HasValue) { builder.Append(Environment.NewLine).Append("HTTP Status Code: ").Append(details.HttpStatusCode.Value); }
+            if (!string.IsNullOrEmpty(details.HttpReasonPhrase)) { builder.Append(Environment.NewLine).Append("HTTP Reason Phrase: ").Append(details.HttpReasonPhrase); }
+            if (details.RetryAttempt.HasValue) { builder.Append(Environment.NewLine).Append("Retry Attempts: ").Append(details.RetryAttempt.Value); }
+            if (!string.IsNullOrEmpty(details.EndpointName)) { builder.Append(Environment.NewLine).Append("Endpoint Name: ").Append(details.EndpointName); }
+            if (details.EndpointUri != null) { builder.Append(Environment.NewLine).Append("Endpoint URI: ").Append(OTLPUriBuilder.Sanitize(details.EndpointUri)); }
+            if (details.SignalType.HasValue) { builder.Append(Environment.NewLine).Append("Signal Type: ").Append(details.SignalType.Value); }
+            if (details.Encoding.HasValue) { builder.Append(Environment.NewLine).Append("Encoding: ").Append(details.Encoding.Value); }
+            if (details.Compression.HasValue) { builder.Append(Environment.NewLine).Append("Compression: ").Append(details.Compression.Value); }
+            if (details.SerializationErrorPosition.HasValue) { builder.Append(Environment.NewLine).Append("Serialization Position: ").Append(details.SerializationErrorPosition.Value); }
+
+            logger.Error(Component, builder.ToString(), exception);
         }
 
         public static ErrorRecord BuildErrorRecord(OTLPErrorDetails details, Exception exception, object targetObject = null)
