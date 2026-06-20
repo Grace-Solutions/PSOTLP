@@ -42,7 +42,7 @@ namespace PSOTLP.Exporters
             }
 
             var definition = OTLPEndpointRegistry.Get(OTLPEndpointRegistry.ExportTracesName);
-            var uri = OTLPUriBuilder.Build(connection.EndpointUri, definition, connection.TracesEndpointUri, connection.Encoding);
+            var uri = OTLPUriBuilder.Build(connection.EndpointUri, definition, connection.TracesEndpointUri, connection.Encoding, connection.NoSignalPath);
             var payload = BuildPayload(connection, spans);
 
             var body = _serializer.SerializeTraces(payload);

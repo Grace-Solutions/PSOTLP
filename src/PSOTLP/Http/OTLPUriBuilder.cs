@@ -10,11 +10,12 @@ namespace PSOTLP.Http
     /// </summary>
     public static class OTLPUriBuilder
     {
-        public static Uri Build(Uri baseEndpoint, OTLPEndpointDefinition definition, Uri signalOverride = null, OTLPEncoding encoding = OTLPEncoding.Json)
+        public static Uri Build(Uri baseEndpoint, OTLPEndpointDefinition definition, Uri signalOverride = null, OTLPEncoding encoding = OTLPEncoding.Json, bool noSignalPath = false)
         {
             if (definition == null) { throw new ArgumentNullException(nameof(definition)); }
             if (signalOverride != null) { return signalOverride; }
             if (baseEndpoint == null) { throw new ArgumentNullException(nameof(baseEndpoint)); }
+            if (noSignalPath) { return baseEndpoint; }
 
             var builder = new UriBuilder(baseEndpoint);
             var basePath = builder.Path ?? string.Empty;
@@ -36,9 +37,9 @@ namespace PSOTLP.Http
             return builder.Uri;
         }
 
-        public static Uri BuildForSignal(Uri baseEndpoint, OTLPSignalType signalType, Uri signalOverride = null)
+        public static Uri BuildForSignal(Uri baseEndpoint, OTLPSignalType signalType, Uri signalOverride = null, bool noSignalPath = false)
         {
-            return Build(baseEndpoint, OTLPEndpointRegistry.GetForSignal(signalType), signalOverride);
+            return Build(baseEndpoint, OTLPEndpointRegistry.GetForSignal(signalType), signalOverride, OTLPEncoding.Json, noSignalPath);
         }
 
         public static Uri Sanitize(Uri uri)

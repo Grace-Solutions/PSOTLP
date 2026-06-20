@@ -18,6 +18,7 @@ namespace PSOTLP.Cmdlets
         [Parameter] public Uri LogsEndpointUri { get; set; }
         [Parameter] public Uri TracesEndpointUri { get; set; }
         [Parameter] public Uri MetricsEndpointUri { get; set; }
+        [Parameter] public SwitchParameter NoSignalPath { get; set; }
 
         [Parameter] public IDictionary Headers { get; set; }
 
@@ -54,6 +55,7 @@ namespace PSOTLP.Cmdlets
                     LogsEndpointUri = LogsEndpointUri,
                     TracesEndpointUri = TracesEndpointUri,
                     MetricsEndpointUri = MetricsEndpointUri,
+                    NoSignalPath = NoSignalPath.IsPresent,
                     Transport = Transport,
                     Encoding = Encoding,
                     Compression = Compression,

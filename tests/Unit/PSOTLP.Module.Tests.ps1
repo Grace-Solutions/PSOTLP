@@ -81,6 +81,13 @@ Describe 'OTLP URI builder' {
         $uri = [PSOTLP.Http.OTLPUriBuilder]::Build($base, $definition, $override)
         $uri.AbsoluteUri | Should -Be 'https://otel.example.com/custom/logs'
     }
+
+    It 'returns the base endpoint unchanged when noSignalPath is set' {
+        $base = [Uri]'https://proxy.example.com/ingest'
+        $definition = [PSOTLP.Endpoints.OTLPEndpointRegistry]::Get('ExportLogs')
+        $uri = [PSOTLP.Http.OTLPUriBuilder]::Build($base, $definition, $null, [PSOTLP.Common.OTLPEncoding]::Json, $true)
+        $uri.AbsoluteUri | Should -Be 'https://proxy.example.com/ingest'
+    }
 }
 
 Describe 'OTLP log formatter' {
