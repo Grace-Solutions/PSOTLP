@@ -3738,16 +3738,16 @@ Identical publish command
 
 The workflow should not require Docker.
 
-The runner labels must be standardized across GitHub and Gitea.
+The runner labels are forge-specific by design, so each workflow file targets the runner pool that its host actually provides.
 
-Recommended labels:
+Active runner labels:
 
 ```text
-linux-host
-windows-host
+Gitea:  powershell-linux
+GitHub: ubuntu-latest
 ```
 
-The same labels should exist in both GitHub and Gitea.
+The Gitea runner pool advertises `powershell-linux` for the host runners. The GitHub workflow uses the GitHub-hosted `ubuntu-latest` image so the mirrored repository remains usable without provisioning a self-hosted GitHub runner. Both targets must provide PowerShell 7, the .NET SDK, and Git.
 
 ---
 
@@ -3927,53 +3927,58 @@ Publish usage:
 
 ## CI/CD Trigger Rules
 
-Pull requests:
+The release workflow is driven entirely by pull requests merged into `main`.
 
-```text
-Build
-Run unit tests
-Do not run integration tests by default
-Do not publish
-Do not sign unless signing secrets are intentionally available
-Do not create public releases
+Trigger:
+
+```yaml
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
 ```
 
-Push to development branches:
+Every job in the workflow is guarded by:
 
-```text
-Build
-Run unit tests
-Do not publish
+```yaml
+if: github.event.pull_request.merged == true
 ```
 
-Push to main:
+so the workflow never runs for a closed-but-unmerged pull request and never runs on direct pushes to `main`.
+
+Pull request (open, synchronize, reopen):
 
 ```text
-Build
-Run unit tests
-Create release artifact
-Do not publish unless explicitly enabled
+No action - the release workflow is not subscribed to these events.
+Validation of pull request commits is delegated to the developer's local build and any future PR validation workflow.
 ```
 
-Tag push:
+Pull request merged into main:
 
 ```text
-Build
-Run unit tests
-Create release artifact
-Publish if publish secrets are present and publish is enabled
+Build the module from source on the merge commit.
+Validate the module manifest.
+Upload the staged module directory as a workflow artifact.
+Create a forge release at the module's version tag, with a CHANGELOG-derived body and the module zip as an asset.
+Publish the staged module directory to the PowerShell Gallery.
 ```
 
-Recommended tag pattern:
+Direct push to main, push to development branches, tag push, and manual dispatch:
 
 ```text
-v*
+No action - the release workflow does not subscribe to these events.
+```
+
+Release tag pattern:
+
+```text
+The release tag equals the module version reported by Test-ModuleManifest, with no prefix.
 ```
 
 Example:
 
 ```text
-v2026.06.19.1844
+2026.06.19.1844
 ```
 
 ---
@@ -4021,16 +4026,29 @@ The files must use the same:
 Workflow name
 Triggers
 Job names
-Runner labels
 Environment variable names
 Secret names
-Build commands
-Release commands
-Publish commands
-Artifact names
+Module name parameterization (env.MODULE_NAME)
+Release tag derivation
+Release body shape
+Publish command
+Artifact name
 ```
 
-The build script must handle platform differences instead of splitting the workflows.
+The two files may differ only on forge-specific surface:
+
+```text
+Runner label (Gitea: powershell-linux, GitHub: ubuntu-latest)
+Artifact upload and download action (Gitea: christopherhx/gitea-upload-artifact@v4 and christopherhx/gitea-download-artifact@v4, GitHub: actions/upload-artifact@v4 and actions/download-artifact@v4)
+Release REST API authentication header (Gitea: token, GitHub: Bearer + X-GitHub-Api-Version)
+Release accept header (Gitea: application/json, GitHub: application/vnd.github+json)
+Pull request URL path segment (Gitea: /pulls/<id>, GitHub: /pull/<id>)
+Release asset upload URI (Gitea: /releases/<id>/assets?name=..., GitHub: upload_url template stripped + ?name=...)
+PSResourceGet bootstrap policy (Gitea: required pre-installed on the host runner, GitHub: installed on demand for CurrentUser)
+GitHub-only permissions block (contents: write on the release job)
+```
+
+No other difference is permitted. The build script must not be split across the two forges.
 
 ---
 
@@ -4039,150 +4057,186 @@ The build script must handle platform differences instead of splitting the workf
 The workflow should be named:
 
 ```text
-PSOTLP Release
+Publish to PowerShell Gallery
 ```
 
 The workflow file should support:
 
 ```text
-Push to main triggers build and package
-Tag matching v* triggers build, package, and publish
-Manual workflow_dispatch with publish and sign inputs
-Linux host runner for both build and publish
-PowerShell 7 build path
+A pull_request closed trigger filtered to the main branch.
+A merged == true guard on every job so closed-but-unmerged pull requests do not run the workflow.
+A top-level env.MODULE_NAME entry that names the module once and is referenced by all jobs and steps.
+Three jobs in order: build, release, publish.
+A Linux host runner for all three jobs (powershell-linux on Gitea, ubuntu-latest on GitHub).
+A PowerShell 7 build path.
+A forge release created through the forge REST API with the module zip uploaded as an asset.
+A PowerShell Gallery publish that consumes the staged module directory without re-running the build.
 ```
 
 ---
 
 ## Reference Workflow
 
-The following workflow must be copied identically to:
+The active workflow files are the source of truth:
 
 ```text
 .github/workflows/release.yml
 .gitea/workflows/release.yml
 ```
 
+The workflow has three jobs that run on a merged pull request into `main`:
+
+```text
+build
+  Restore NuGet packages.
+  Run build.ps1 to compile the binary module and stage Module/<MODULE_NAME>.
+  Validate Module/<MODULE_NAME>/<MODULE_NAME>.psd1 with Test-ModuleManifest.
+  Upload Module/<MODULE_NAME>/ as the <MODULE_NAME>-module workflow artifact.
+
+release
+  Download the <MODULE_NAME>-module artifact into Module/<MODULE_NAME>/.
+  Resolve the module version and the release tag from the manifest.
+  Compress Module/<MODULE_NAME>/* into <MODULE_NAME>-<VERSION>.zip.
+  Look up the release at the tag; skip creation if it already exists.
+  Build a release body containing a metadata table, the CHANGELOG section for the version, and an Install snippet.
+  Create the forge release through the forge REST API.
+  Upload the zip as a release asset.
+
+publish
+  Download the <MODULE_NAME>-module artifact into Module/<MODULE_NAME>/.
+  Bootstrap Microsoft.PowerShell.PSResourceGet and register PSGallery as Trusted with ApiVersion v2.
+  Verify the PSGALLERY_API_KEY secret is present and fail with a plain English message if not.
+  Re-validate the downloaded manifest.
+  Publish-PSResource -Path Module/<MODULE_NAME> -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY.
+```
+
+Skeleton (canonical Gitea form; the GitHub form is byte-identical except for the forge-specific surface enumerated in the Identical Workflow Requirement section):
+
 ```yaml
-name: PSOTLP Release
+name: Publish to PowerShell Gallery
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: 'Publish release artifacts to the configured destinations'
-        required: false
-        default: 'false'
-      sign:
-        description: 'Sign the release artifacts (requires signing secrets)'
-        required: false
-        default: 'false'
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+env:
+  MODULE_NAME: PSOTLP
 
 jobs:
   build:
-    name: Build and Package
-    runs-on: linux-host
-
+    if: github.event.pull_request.merged == true
+    runs-on: powershell-linux
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Show runner context
+      - uses: actions/checkout@v4
+      - name: Build module
         shell: pwsh
-        run: |
-          $PSVersionTable
-          [System.Environment]::OSVersion
-          [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-
-      - name: Build and create release package
+        run: ./build.ps1
+      - name: Validate module manifest
         shell: pwsh
-        run: |
-          ./build.ps1 -CI -Clean -Restore -CreateRelease -Configuration Release -Force
-
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        run: Test-ModuleManifest "Module/${env:MODULE_NAME}/${env:MODULE_NAME}.psd1"
+      - name: Upload module artifact
+        uses: christopherhx/gitea-upload-artifact@v4
         with:
-          name: PSOTLP-release
-          path: Releases/
+          name: ${{ env.MODULE_NAME }}-module
+          path: Module/${{ env.MODULE_NAME }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: build
+    if: ${{ success() && github.event.pull_request.merged == true }}
+    runs-on: powershell-linux
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: christopherhx/gitea-download-artifact@v4
+        with:
+          name: ${{ env.MODULE_NAME }}-module
+          path: Module/${{ env.MODULE_NAME }}
+      - id: meta
+        shell: pwsh
+        run: |
+          $version = (Test-ModuleManifest "Module/${env:MODULE_NAME}/${env:MODULE_NAME}.psd1").Version.ToString()
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
+          "tag=$version"     | Out-File $env:GITHUB_OUTPUT -Append
+      - name: Package and create release
+        shell: pwsh
+        env:
+          GITEA_TOKEN: ${{ github.token }}
+          API_URL:    ${{ github.api_url }}
+          REPO:       ${{ github.repository }}
+          TAG:        ${{ steps.meta.outputs.tag }}
+          VERSION:    ${{ steps.meta.outputs.version }}
+        run: |
+          # Compress Module/<MODULE_NAME>/* into <MODULE_NAME>-<VERSION>.zip,
+          # build a release body from the CHANGELOG section for $env:VERSION,
+          # look up the existing release by tag (skip if present),
+          # POST a new release to $API_URL/repos/$REPO/releases,
+          # upload the zip to /releases/<id>/assets?name=<MODULE_NAME>-<VERSION>.zip.
 
   publish:
-    name: Publish
-    needs:
-      - build
-
-    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') }}
-
-    runs-on: linux-host
-
-    env:
-      PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      NUGET_SOURCE_URI: ${{ secrets.NUGET_SOURCE_URI }}
-      SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
-      SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
-      TIMESTAMP_SERVER_URI: ${{ secrets.TIMESTAMP_SERVER_URI }}
-
+    needs: release
+    if: ${{ success() && github.event.pull_request.merged == true }}
+    runs-on: powershell-linux
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Publish release
+      - uses: christopherhx/gitea-download-artifact@v4
+        with:
+          name: ${{ env.MODULE_NAME }}-module
+          path: Module/${{ env.MODULE_NAME }}
+      - name: Publish to PowerShell Gallery
         shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
         run: |
-          $extra = @()
-          if ('${{ github.event.inputs.sign }}' -eq 'true') { $extra += '-Sign' }
-          ./build.ps1 -CI -Clean -Restore -CreateRelease -Publish -PublishPowerShellGallery -Configuration Release -Force @extra
+          if ([string]::IsNullOrWhiteSpace($env:PSGALLERY_API_KEY)) {
+              throw "The PowerShell Gallery publish step could not start because the repository secret PSGALLERY_API_KEY is not available."
+          }
+          Publish-PSResource `
+              -Path (Join-Path $PWD "Module/${env:MODULE_NAME}") `
+              -Repository PSGallery `
+              -ApiKey $env:PSGALLERY_API_KEY `
+              -Verbose
 ```
+
+The full step-by-step content of each job, including the host prerequisite checks, the manifest validation steps, the CHANGELOG extraction logic, and the PSResourceGet bootstrap, lives in the workflow files themselves and is the binding source.
 
 ---
 
 ## Gitea Compatibility Rule
 
-Gitea should use the same workflow syntax as GitHub wherever possible.
+Gitea should use the same workflow syntax as GitHub wherever possible. The only differences allowed are the forge-specific surface enumerated in the Identical Workflow Requirement section.
 
-The runner environment must provide:
+The Gitea host runner must provide:
 
 ```text
 PowerShell 7
 .NET SDK
 Git
-Required build tools
-Any signing tools required by the publish job
+Microsoft.PowerShell.PSResourceGet pre-installed for AllUsers (the Gitea publish job does not bootstrap PSResourceGet at runtime)
 ```
 
-Because the workflow is designed for host runners, Gitea runners should advertise:
+The Gitea runner pool must advertise the label that the workflow targets:
 
 ```text
-linux-host:host
-windows-host:host
+powershell-linux
 ```
-
-The `runs-on` labels in the workflow must match the labels configured in Gitea act_runner and GitHub self-hosted runners.
 
 ---
 
 ## GitHub Runner Rule
 
-GitHub runners should use self-hosted runner labels matching Gitea:
-
-```text
-linux-host
-windows-host
-```
-
-The workflow should not rely on GitHub-hosted runner labels such as:
+The GitHub workflow targets the GitHub-hosted Linux image so the mirrored repository remains runnable without provisioning a self-hosted GitHub runner:
 
 ```text
 ubuntu-latest
-windows-latest
 ```
 
-unless the same labels are intentionally provided in Gitea.
+The publish job bootstraps Microsoft.PowerShell.PSResourceGet on demand for the CurrentUser scope, because the GitHub-hosted image does not preinstall it for AllUsers.
+
+If the repository switches to a self-hosted GitHub runner, the runner label and PSResourceGet provisioning policy must be updated to match the Gitea contract.
 
 ---
 
@@ -4191,9 +4245,10 @@ unless the same labels are intentionally provided in Gitea.
 Publishing must occur only when:
 
 ```text
-The workflow is running from a tag beginning with v
-or workflow_dispatch publish is explicitly true
-and the required repository secret is present
+The pull request was closed with merged == true.
+The pull request targeted the main branch.
+The PSGALLERY_API_KEY repository secret is present.
+The release job created or confirmed the forge release for the module version.
 ```
 
 PowerShell Gallery publishing requires:
@@ -4208,9 +4263,11 @@ If missing, fail with:
 The PowerShell Gallery publish step could not start because the repository secret PSGALLERY_API_KEY is not available.
 ```
 
-Do not publish from pull request workflows.
+Do not publish from pull requests that were closed without being merged.
 
-Do not publish from untrusted branches.
+Do not publish from branches other than main.
+
+Do not publish from direct pushes to main, tag pushes, or manual dispatch (the workflow does not subscribe to those events).
 
 ---
 
@@ -4249,16 +4306,23 @@ Raw environment dumps
 ```text
 GitHub Actions workflow exists at .github/workflows/release.yml.
 Gitea Actions workflow exists at .gitea/workflows/release.yml.
-GitHub and Gitea workflows are identical unless a documented platform limitation requires a difference.
-Both workflows use repository secrets only for sensitive values.
+Both workflows are named "Publish to PowerShell Gallery".
+Both workflows subscribe to pull_request closed on the main branch only.
+Both workflows guard every job with github.event.pull_request.merged == true.
+Both workflows have the same three jobs in the same order: build, release, publish.
+Both workflows reference the module name through env.MODULE_NAME at the top level.
 Both workflows use the same secret names.
-Both workflows use the same runner labels.
-Both workflows use host runners by default.
-Both workflows avoid container jobs.
-Both workflows call build.ps1 instead of duplicating build logic.
-Pull requests build and test only.
-Publishing does not run for pull requests.
-Publishing runs only for tags or explicit manual dispatch.
+Both workflows use host runners by default and avoid container jobs.
+The Gitea workflow targets runs-on: powershell-linux.
+The GitHub workflow targets runs-on: ubuntu-latest.
+The two workflows differ only on the forge-specific surface documented in the Identical Workflow Requirement section.
+The build job uploads Module/<MODULE_NAME>/ as the <MODULE_NAME>-module artifact.
+The release job creates a forge release at the module version, with the <MODULE_NAME>-<VERSION>.zip uploaded as a release asset.
+The release job skips creation when the release at the tag already exists.
+The publish job consumes the downloaded module artifact and calls Publish-PSResource against the staged directory.
+The publish job fails with a plain English error when PSGALLERY_API_KEY is missing, and never reveals the secret value.
+Publishing does not run for pull requests that were closed without being merged.
+Publishing does not run for direct pushes to main, tag pushes, or manual dispatch.
 PowerShell Gallery publishing uses PSGALLERY_API_KEY.
 Secrets are passed as environment variables.
 Secrets are never echoed.
