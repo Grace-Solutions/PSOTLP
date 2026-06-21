@@ -4,6 +4,21 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - 'tests/**'
+      - 'build.ps1'
+      - 'build/**'
+      - 'Module/**'
+      - '**/*.sln'
+      - '**/*.csproj'
+      - '.gitea/workflows/**'
+      - '.github/workflows/**'
+      - '.gitignore'
+      - '.gitattributes'
 
 env:
   MODULE_NAME: PSOTLP
