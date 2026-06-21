@@ -47,6 +47,8 @@ jobs:
 
       - name: Build module
         shell: pwsh
+        env:
+          PSGALLERY_PROJECT_URI: ${{ vars.PSGALLERY_PROJECT_URI }}
         run: ./build.ps1
 
       - name: Validate module manifest

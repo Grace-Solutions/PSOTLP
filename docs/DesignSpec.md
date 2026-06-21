@@ -3811,6 +3811,7 @@ Repository variables may be used only for non-sensitive values.
 Supported repository variables:
 
 ```text
+PSGALLERY_PROJECT_URI
 PSOTLP_SERVICE_NAME
 PSOTLP_SERVICE_NAMESPACE
 PSOTLP_DEPLOYMENT_ENVIRONMENT
@@ -3818,6 +3819,8 @@ PSOTLP_DEFAULT_ENDPOINT_URI
 DOTNET_VERSION
 POWERSHELL_REQUIRED_VERSION
 ```
+
+`PSGALLERY_PROJECT_URI` is read by `Write-OTLPModuleManifest` and stamped into `PrivateData.PSData.ProjectUri` of the generated `PSOTLP.psd1`. The PowerShell Gallery rejects packages with an empty `ProjectUrl`, so this variable must be set on any repository that publishes the module. The publish job fails with the Gallery's own `'ProjectUrl cannot be empty.'` error if the value is missing at build time.
 
 Repository variables must not contain:
 

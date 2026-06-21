@@ -116,6 +116,9 @@ function Publish-OTLPModuleAssets {
 function Write-OTLPModuleManifest {
     [CmdletBinding()] param([Parameter(Mandatory)] $Context)
     $manifestPath = [System.IO.Path]::Combine($Context.ModuleDir.FullName, 'PSOTLP.psd1')
+    $projectUri = $env:PSGALLERY_PROJECT_URI
+    if ([string]::IsNullOrWhiteSpace($projectUri)) { $projectUri = '' }
+    $projectUriEscaped = $projectUri -replace "'", "''"
     $contents = @"
 @{
     RootModule = 'PSOTLP.psm1'
@@ -149,7 +152,7 @@ function Write-OTLPModuleManifest {
     PrivateData = @{
         PSData = @{
             Tags = @('OpenTelemetry','OTLP','Logs','Tracing','PowerShell','Observability','GraceSolutions')
-            ProjectUri = ''
+            ProjectUri = '$projectUriEscaped'
             ReleaseNotes = ''
             CommitHash = '$($Context.CommitHash)'
         }
