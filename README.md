@@ -32,7 +32,7 @@ Install-Module -Name PSOTLP -Scope CurrentUser
 From source:
 
 ```powershell
-git clone https://prod.git.gracesolution.info/gsadmin/PSOTLP.git
+git clone https://github.com/Grace-Solutions/PSOTLP.git
 cd PSOTLP
 ./build.ps1 -Configuration Release
 Import-Module ./Module/PSOTLP/PSOTLP.psd1 -Force
