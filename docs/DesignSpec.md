@@ -3939,6 +3939,21 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - 'tests/**'
+      - 'build.ps1'
+      - 'build/**'
+      - 'Module/**'
+      - '**/*.sln'
+      - '**/*.csproj'
+      - '.gitea/workflows/**'
+      - '.github/workflows/**'
+      - '.gitignore'
+      - '.gitattributes'
 ```
 
 Every job in the workflow is guarded by:
@@ -3948,6 +3963,8 @@ if: github.event.pull_request.merged == true
 ```
 
 so the workflow never runs for a closed-but-unmerged pull request and never runs on direct pushes to `main`.
+
+The `paths-ignore` filter restricts release triggering to source-code changes under `src/**`. Documentation, tests, the build script, the staged module directory, project and solution files, the CI workflow definitions, and repository metadata are all excluded. A merged pull request that touches only the listed paths does not run the build, release, or publish jobs. A pull request that touches any non-ignored path (in practice, any file under `src/**`) runs the full pipeline. When the pipeline runs, the runner builds the module from the current tip of `main`, so all current tracked files (including the latest `*.ps1xml`, `*.csproj`, and `Module/**` content) are packaged into the release regardless of whether they themselves can independently trigger the workflow.
 
 Pull request (open, synchronize, reopen):
 
@@ -4122,6 +4139,21 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - 'tests/**'
+      - 'build.ps1'
+      - 'build/**'
+      - 'Module/**'
+      - '**/*.sln'
+      - '**/*.csproj'
+      - '.gitea/workflows/**'
+      - '.github/workflows/**'
+      - '.gitignore'
+      - '.gitattributes'
 
 env:
   MODULE_NAME: PSOTLP

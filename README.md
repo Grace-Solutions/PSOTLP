@@ -63,6 +63,105 @@ Connect-OTLP -EndpointUri 'https://otel.example.com' -RedactPattern $patterns
 See [`docs/`](docs) for per-cmdlet reference and
 [`docs/DesignSpec.md`](docs/DesignSpec.md) for the full design specification.
 
+## Wrapping existing scripts in a loop
+
+`Invoke-OTLPScript` captures every PowerShell stream emitted inside the wrapped
+script — `Write-Output`, `Write-Verbose`, `Write-Information`, `Write-Warning`,
+`Write-Error`, `Write-Debug`, and the script's success output — and ships each
+record to the connected OTLP endpoint. The wrapped script does not need to call
+any OTLP cmdlets; existing scripts run unmodified via `& $Path`.
+
+```powershell
+Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'maintenance-runner'
+
+$ScriptFiles = Get-ChildItem -Path 'C:\Ops\Scripts' -Filter '*.ps1' -File
+
+for ($i = 0; $i -lt $ScriptFiles.Count; $i++)
+{
+    $Counter = $i + 1
+    $ScriptFile = $ScriptFiles[$i]
+
+    Write-Progress -Activity 'Running maintenance scripts' -Status "$Counter of $($ScriptFiles.Count): $($ScriptFile.Name)" -PercentComplete (($Counter / $ScriptFiles.Count) * 100)
+
+    Write-OTLPLog -Body "Attempting to run script $Counter of $($ScriptFiles.Count)" -Severity Information
+    Write-OTLPLog -Body "Script path: $($ScriptFile.FullName)" -Severity Information
+
+    $SharedState = [hashtable]::Synchronized(@{})
+        $SharedState.Success = $False
+        $SharedState.ExitCode = $Null
+        $SharedState.Error = $Null
+
+    try
+    {
+        $InvokeOTLPScriptParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+            $InvokeOTLPScriptParameters.ScriptBlock = {
+                                                            param($Path)
+
+                                                            $ErrorActionPreference = 'Stop'
+
+                                                            try
+                                                                {
+                                                                    & $Path
+                                                                    $SharedState.ExitCode = $LASTEXITCODE
+                                                                    $SharedState.Success = $True
+                                                                }
+                                                            catch
+                                                                {
+                                                                    $SharedState.Error = $_.Exception.Message
+                                                                    throw
+                                                                }
+                                                      }
+
+            $InvokeOTLPScriptParameters.ArgumentList = New-Object -TypeName 'System.Collections.Generic.List[System.Object]'
+                $InvokeOTLPScriptParameters.ArgumentList.Add($ScriptFile.FullName)
+            $InvokeOTLPScriptParameters.SessionName = $ScriptFile.BaseName
+            $InvokeOTLPScriptParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+                $InvokeOTLPScriptParameters.Attribute['script.name'] = $ScriptFile.Name
+                $InvokeOTLPScriptParameters.Attribute['script.runner'] = 'maintenance-runner'
+                $InvokeOTLPScriptParameters.Attribute['script.index'] = $Counter
+            $InvokeOTLPScriptParameters.SharedState = $SharedState
+            $InvokeOTLPScriptParameters.BatchSize = 100
+            $InvokeOTLPScriptParameters.PassThru = $True
+            $InvokeOTLPScriptParameters.ErrorAction = 'Stop'
+            $InvokeOTLPScriptParameters.Verbose = $True
+
+        $InvokeOTLPScriptResult = Invoke-OTLPScript @InvokeOTLPScriptParameters
+    }
+    catch
+    {
+        Write-OTLPLog -Body "Script $Counter of $($ScriptFiles.Count) threw: $($ScriptFile.FullName) - $($_.Exception.Message)" -Severity Error
+    }
+    finally
+    {
+        if ($SharedState.Success)
+        {
+            Write-OTLPLog -Body "Completed script $Counter of $($ScriptFiles.Count): $($ScriptFile.Name) (exit code: $($SharedState.ExitCode))" -Severity Information
+        }
+        else
+        {
+            Write-OTLPLog -Body "Failed script $Counter of $($ScriptFiles.Count): $($ScriptFile.Name) - $($SharedState.Error)" -Severity Error
+        }
+    }
+}
+
+Write-Progress -Activity 'Running maintenance scripts' -Completed
+
+Disconnect-OTLP
+```
+
+`-SharedState` injects a `[hashtable]::Synchronized` dictionary as `$SharedState`
+inside the child runspace. The wrapped script sets `Success`, `ExitCode`, and
+`Error` on it so the parent loop can decide pass/fail per script. Combined with
+`$ErrorActionPreference = 'Stop'` inside the script and `-ErrorAction Stop` on
+`Invoke-OTLPScript`, infrastructure failures and script `throw`s both surface
+in the parent `catch`, while non-terminating `Write-Error` calls still flow to
+the OTLP backend as `Severity=Error` log records.
+
+Each captured record is tagged with the `script.path`, `script.runner`, and
+`script.index` attributes above plus `powershell.stream`,
+`powershell.session.id`, and `powershell.session.name`, so per-script logs are
+easy to filter at the backend.
+
 ## Backends
 
 Any OTLP/HTTP-compatible backend works. Two are called out below because their
