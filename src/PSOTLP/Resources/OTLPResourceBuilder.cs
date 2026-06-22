@@ -7,13 +7,13 @@ using PSOTLP.Models;
 namespace PSOTLP.Resources
 {
     /// <summary>
-    /// Centralized resource attribute merger. Resolves the final OTLPResource value used by the
-    /// log and trace exporters by combining (in precedence order):
-    ///   1. Built-in system inventory attributes (host/os/process/network).
-    ///   2. Module identity attributes (service.name; service.namespace, service.instance.id and
-    ///      deployment.environment only when explicitly configured on the connection).
-    ///   3. Connection-level resource attributes (Connect-OTLP -ResourceAttributes).
-    ///   4. Per-record resource attributes supplied by the cmdlet caller.
+    /// Centralized resource attribute merger. Built-in system inventory and module identity
+    /// always form the always-on baseline; connection-level resource attributes and any per-
+    /// record overrides are combined under the requested <see cref="OTLPAttributeMergeMode"/>:
+    ///   * Merge   - caller keys overlay the baseline; caller wins on collision.
+    ///   * Replace - caller dictionary replaces the connection-level layer; system inventory
+    ///               and module identity are always retained.
+    ///   * Skip    - baseline wins on collision; caller fills missing keys only.
     /// </summary>
     public static class OTLPResourceBuilder
     {
@@ -21,21 +21,31 @@ namespace PSOTLP.Resources
 
         public static OTLPResource Build(OTLPConnection connection, IDictionary<string, object> recordOverrides)
         {
+            return Build(connection, recordOverrides, ResolveMode(connection, null));
+        }
+
+        public static OTLPResource Build(OTLPConnection connection, IDictionary<string, object> recordOverrides, OTLPAttributeMergeMode mode)
+        {
+            var identity = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            MergeInto(identity, SystemInfo.GetHostAttributes());
+            MergeInto(identity, SystemInfo.GetHardwareAttributes());
+            MergeInto(identity, SystemInfo.GetNetworkAttributes());
+            MergeInto(identity, GetModuleAttributes(connection));
+
+            var connectionLayer = connection != null ? connection.ResourceAttributes : null;
+            var userLayer = OTLPAttributeMerger.Apply(connectionLayer, recordOverrides, mode);
+
             var merged = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-
-            MergeInto(merged, SystemInfo.GetHostAttributes());
-            MergeInto(merged, SystemInfo.GetHardwareAttributes());
-            MergeInto(merged, SystemInfo.GetNetworkAttributes());
-            MergeInto(merged, GetModuleAttributes(connection));
-
-            if (connection != null && connection.ResourceAttributes != null)
-            {
-                MergeInto(merged, connection.ResourceAttributes);
-            }
-
-            if (recordOverrides != null) { MergeInto(merged, recordOverrides); }
+            MergeInto(merged, identity);
+            MergeInto(merged, userLayer);
 
             return new OTLPResource { Attributes = OTLPAttributeConverter.ToKeyValueList(merged) };
+        }
+
+        public static OTLPAttributeMergeMode ResolveMode(OTLPConnection connection, OTLPAttributeMergeMode? recordMode)
+        {
+            if (recordMode.HasValue) { return recordMode.Value; }
+            return connection != null ? connection.AttributeMergeMode : OTLPAttributeMergeMode.Merge;
         }
 
         public static OTLPInstrumentationScope BuildScope(OTLPConnection connection)

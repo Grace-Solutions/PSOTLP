@@ -23,7 +23,12 @@ namespace PSOTLP.Cmdlets
         [Parameter] public string SpanId { get; set; }
         [Parameter] public string ParentSpanId { get; set; }
 
-        [Parameter] public IDictionary Attribute { get; set; }
+        [Parameter]
+        [Alias("Attribute")]
+        public IDictionary Attributes { get; set; }
+
+        [Parameter] public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
+
         [Parameter] public DateTimeOffset StartTimeUtc { get; set; } = DateTimeOffset.UtcNow;
 
         [Parameter] public SwitchParameter PassThru { get; set; }
@@ -50,7 +55,8 @@ namespace PSOTLP.Cmdlets
                     Name = Name,
                     Kind = Kind,
                     StartTimeUtc = StartTimeUtc,
-                    Attributes = HashtableToDictionary(Attribute)
+                    Attributes = HashtableToDictionary(Attributes),
+                    AttributeMergeMode = MyInvocation.BoundParameters.ContainsKey("AttributeMergeMode") ? AttributeMergeMode : (OTLPAttributeMergeMode?)null
                 };
 
                 OTLPSpanContextStack.Push(span);

@@ -14,7 +14,8 @@ Starts a new OTLP span and pushes it onto the active span context stack.
 
 ```
 Start-OTLPSpan [-Name] <String> [-Kind <OTLPSpanKind>] [-TraceId <String>] [-SpanId <String>]
- [-ParentSpanId <String>] [-Attribute <IDictionary>] [-StartTimeUtc <DateTimeOffset>] [-PassThru]
+ [-ParentSpanId <String>] [-Attributes <IDictionary>]
+ [-AttributeMergeMode <OTLPAttributeMergeMode>] [-StartTimeUtc <DateTimeOffset>] [-PassThru]
  [<CommonParameters>]
 ```
 
@@ -31,9 +32,9 @@ parent. Returns the span when `-PassThru` is supplied.
 $StartOTLPSpanParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     $StartOTLPSpanParameters.Name = 'install-driver'
     $StartOTLPSpanParameters.Kind = [PSOTLP.Common.OTLPSpanKind]::Internal
-    $StartOTLPSpanParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $StartOTLPSpanParameters.Attribute['component'] = 'driver-installer'
-        $StartOTLPSpanParameters.Attribute['driver.name'] = 'foo.inf'
+    $StartOTLPSpanParameters.Attributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $StartOTLPSpanParameters.Attributes['component'] = 'driver-installer'
+        $StartOTLPSpanParameters.Attributes['driver.name'] = 'foo.inf'
     $StartOTLPSpanParameters.StartTimeUtc = [DateTimeOffset]::UtcNow
     $StartOTLPSpanParameters.PassThru = $True
     $StartOTLPSpanParameters.Verbose = $True
@@ -122,18 +123,36 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Attribute
+### -Attributes
 `IDictionary` of span attributes (`Hashtable`, `OrderedDictionary`, etc.). Keys become
 attribute names; values are normalized to OTLP `AnyValue` kinds.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: (All)
-Aliases:
+Aliases: Attribute
 
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -AttributeMergeMode
+Overrides the connection's `AttributeMergeMode` for this span only. When omitted, the
+connection-level mode (defaulting to `Merge`) is used. Accepted values: `Merge`, `Replace`,
+`Skip`. See `Connect-OTLP` for the full semantics.
+
+```yaml
+Type: PSOTLP.Common.OTLPAttributeMergeMode
+Parameter Sets: (All)
+Aliases:
+Accepted values: Merge, Replace, Skip
+
+Required: False
+Position: Named
+Default value: Merge
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

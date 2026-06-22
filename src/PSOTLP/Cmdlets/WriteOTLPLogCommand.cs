@@ -27,7 +27,8 @@ namespace PSOTLP.Cmdlets
         public OTLPSeverity Severity { get; set; } = OTLPSeverity.Information;
 
         [Parameter(ParameterSetName = BodyParameterSet)]
-        public IDictionary Attribute { get; set; }
+        [Alias("Attribute")]
+        public IDictionary Attributes { get; set; }
 
         [Parameter(ParameterSetName = BodyParameterSet)]
         [Alias("ResourceAttribute")]
@@ -36,6 +37,9 @@ namespace PSOTLP.Cmdlets
         [Parameter(ParameterSetName = BodyParameterSet)]
         [Alias("LogAttribute")]
         public IDictionary LogAttributes { get; set; }
+
+        [Parameter(ParameterSetName = BodyParameterSet)]
+        public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
 
         [Parameter(ParameterSetName = BodyParameterSet)]
         public string EventName { get; set; }
@@ -95,9 +99,10 @@ namespace PSOTLP.Cmdlets
                 ObservedTimestampUtc = DateTimeOffset.UtcNow,
                 TraceId = TraceId,
                 SpanId = SpanId,
-                Attributes = HashtableToDictionary(Attribute),
+                Attributes = HashtableToDictionary(Attributes),
                 ResourceAttributes = HashtableToDictionary(ResourceAttributes),
-                LogAttributes = HashtableToDictionary(LogAttributes)
+                LogAttributes = HashtableToDictionary(LogAttributes),
+                AttributeMergeMode = MyInvocation.BoundParameters.ContainsKey("AttributeMergeMode") ? AttributeMergeMode : (OTLPAttributeMergeMode?)null
             };
         }
 

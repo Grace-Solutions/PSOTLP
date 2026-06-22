@@ -75,7 +75,7 @@ The main user experience is connection-scoped explicit logging and on-demand scr
 ```powershell
 Connect-OTLP -EndpointUri 'https://otel.example.com' -Headers @{ Authorization = (ConvertTo-SecureString 'Bearer token' -AsPlainText -Force) }
 
-Write-OTLPLog -Body 'Starting device onboarding' -Severity Information -Attribute @{ Phase = 'PreExecution'; Customer = 'Personal' }
+Write-OTLPLog -Body 'Starting device onboarding' -Severity Information -Attributes @{ Phase = 'PreExecution'; Customer = 'Personal' }
 
 Invoke-OTLPScript -ScriptBlock {
     Get-Service
@@ -1402,7 +1402,7 @@ Emit one structured OTLP log record.
 Write-OTLPLog `
     -Body <string> `
     [-Severity <Trace|Debug|Information|Warning|Error|Fatal>] `
-    [-Attribute <hashtable>] `
+    [-Attributes <hashtable>] `
     [-EventName <string>] `
     [-TimestampUtc <DateTimeOffset>] `
     [-TraceId <string>] `
@@ -1432,7 +1432,7 @@ Return record only with -PassThru.
 Example:
 
 ```powershell
-Write-OTLPLog -Body 'Starting bootstrap' -Severity Information -Attribute @{ Phase = 'PreExecution'; Script = 'CloudbaseInit' }
+Write-OTLPLog -Body 'Starting bootstrap' -Severity Information -Attributes @{ Phase = 'PreExecution'; Script = 'CloudbaseInit' }
 ```
 
 ---
@@ -1486,7 +1486,7 @@ Invoke-OTLPScript `
     [-ArgumentList <object[]>] `
     [-SessionName <string>] `
     [-ServiceName <string>] `
-    [-Attribute <IDictionary>] `
+    [-Attributes <IDictionary>] `
     [-BatchSize <int>] `
     [-PassThru]
 ```
@@ -2190,7 +2190,7 @@ Write-OTLPLog -Body 'Install started'
 Intermediate call:
 
 ```powershell
-Write-OTLPLog -Body 'Package installed' -Severity Information -Attribute @{ PackageName = 'Git'; ExitCode = 0 }
+Write-OTLPLog -Body 'Package installed' -Severity Information -Attributes @{ PackageName = 'Git'; ExitCode = 0 }
 ```
 
 Advanced call:
@@ -2335,6 +2335,24 @@ Write-OTLPLog -ResourceAttributes @{ 'service.name' = 'custom-event-service' }
 
 Final service.name = custom-event-service
 ```
+
+### 7.1 AttributeMergeMode
+
+The precedence above describes default behavior. Callers may override that behavior using
+`-AttributeMergeMode`, which is exposed on `Connect-OTLP` (where it becomes the default for
+the session) and on every record-emitting cmdlet (`Write-OTLPLog`, `Write-OTLPMetric`,
+`Start-OTLPSpan`, `Write-OTLPSpanEvent`, `Invoke-OTLPScript`). Per-cmdlet values override the
+connection-level value for a single call; omitting the parameter inherits the connection mode.
+
+| Mode | Behavior |
+|------|----------|
+| `Merge` (default) | User keys overlay defaults; non-conflicting defaults survive. |
+| `Replace` | User-supplied attributes for the record become the entire attribute slot; connection-level user defaults (`ResourceAttributes`, `LogAttributes`) are skipped. System and module identity attributes (`service.name`, `host.name`, etc.) are preserved. |
+| `Skip` | User-supplied attributes for that call are ignored; defaults flow through unchanged. |
+
+Implementation: `PSOTLP.Common.OTLPAttributeMergeMode` enum, `PSOTLP.Resources.OTLPAttributeMerger.Apply`,
+and `PSOTLP.Resources.OTLPResourceBuilder.ResolveMode` (which resolves record-level
+override → connection setting → `Merge`).
 
 ---
 
@@ -2653,7 +2671,7 @@ Null for uncorrelated logs
 Example:
 
 ```powershell
-$Span = Start-OTLPSpan -Name 'Install-Git' -Attribute @{ PackageName = 'Git' } -PassThru
+$Span = Start-OTLPSpan -Name 'Install-Git' -Attributes @{ PackageName = 'Git' } -PassThru
 
 Write-OTLPLog -Body 'Installing Git' -Severity Information -TraceId $Span.TraceId -SpanId $Span.SpanId
 
@@ -2730,7 +2748,7 @@ public sealed class OTLPSpanEvent
 Example:
 
 ```powershell
-Write-OTLPSpanEvent -Name 'PackageDownloaded' -Attribute @{ Package = 'Git'; Source = 'Winget' }
+Write-OTLPSpanEvent -Name 'PackageDownloaded' -Attributes @{ Package = 'Git'; Source = 'Winget' }
 ```
 
 ---

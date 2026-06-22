@@ -19,6 +19,7 @@ namespace PSOTLP.Sessions
         private readonly OTLPRedactionEngine _redaction;
         private readonly OTLPSession _session;
         private readonly IDictionary<string, object> _extraAttributes;
+        private readonly OTLPAttributeMergeMode? _attributeMergeMode;
 
         private EventHandler<DataAddedEventArgs> _errorHandler;
         private EventHandler<DataAddedEventArgs> _warningHandler;
@@ -27,11 +28,15 @@ namespace PSOTLP.Sessions
         private EventHandler<DataAddedEventArgs> _informationHandler;
 
         public OTLPStreamHook(OTLPSessionQueue queue, OTLPRedactionEngine redaction, OTLPSession session, IDictionary<string, object> extraAttributes)
+            : this(queue, redaction, session, extraAttributes, null) { }
+
+        public OTLPStreamHook(OTLPSessionQueue queue, OTLPRedactionEngine redaction, OTLPSession session, IDictionary<string, object> extraAttributes, OTLPAttributeMergeMode? attributeMergeMode)
         {
             _queue = queue ?? throw new ArgumentNullException(nameof(queue));
             _redaction = redaction;
             _session = session;
             _extraAttributes = extraAttributes;
+            _attributeMergeMode = attributeMergeMode;
         }
 
         public void Attach(PowerShell ps)
@@ -96,7 +101,8 @@ namespace PSOTLP.Sessions
                 Severity = OTLPSeverityMapper.FromStreamName(streamName),
                 TimestampUtc = DateTimeOffset.UtcNow,
                 ObservedTimestampUtc = DateTimeOffset.UtcNow,
-                Attributes = attributes
+                Attributes = attributes,
+                AttributeMergeMode = _attributeMergeMode
             };
             if (_queue.Enqueue(record) && _session != null) { _session.RecordsCaptured++; }
         }

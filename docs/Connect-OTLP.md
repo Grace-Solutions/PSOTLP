@@ -19,7 +19,8 @@ Connect-OTLP [-EndpointUri <Uri>] [-LogsEndpointUri <Uri>] [-TracesEndpointUri <
  [-ServiceNamespace <String>] [-ServiceInstanceId <String>] [-ScopeName <String>]
  [-ScopeVersion <String>] [-ScopeAttributes <IDictionary>] [-EnvironmentName <String>]
  [-ResourceAttributes <IDictionary>] [-LogAttributes <IDictionary>]
- [-RedactPattern <Regex[]>] [-RetryCount <Int32>] [-TimeoutSeconds <Int32>] [-PassThru]
+ [-AttributeMergeMode <OTLPAttributeMergeMode>] [-RedactPattern <Regex[]>]
+ [-RetryCount <Int32>] [-TimeoutSeconds <Int32>] [-PassThru]
  [<CommonParameters>]
 ```
 
@@ -371,6 +372,32 @@ Aliases: LogAttribute
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -AttributeMergeMode
+Controls how user-supplied attribute dictionaries combine with system, module, and
+connection-level defaults. The mode stored on the connection becomes the default for every
+record-emitting cmdlet (`Write-OTLPLog`, `Write-OTLPMetric`, `Start-OTLPSpan`,
+`Write-OTLPSpanEvent`, `Invoke-OTLPScript`). Each of those cmdlets can override the mode for
+an individual call via its own `-AttributeMergeMode` parameter.
+
+| Mode | Behavior |
+|------|----------|
+| `Merge` (default) | User keys overlay defaults; non-conflicting defaults survive. |
+| `Replace` | User-supplied attributes for the record become the entire attribute slot; connection-level user defaults are skipped. System and module identity attributes (`service.name`, `host.name`, etc.) are preserved. |
+| `Skip` | User-supplied attributes for that call are ignored; defaults flow through unchanged. |
+
+```yaml
+Type: PSOTLP.Common.OTLPAttributeMergeMode
+Parameter Sets: (All)
+Aliases:
+Accepted values: Merge, Replace, Skip
+
+Required: False
+Position: Named
+Default value: Merge
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

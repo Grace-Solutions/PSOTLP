@@ -16,8 +16,9 @@ Sends a single OTLP metric record using the active connection.
 ```
 Write-OTLPMetric [-Name] <String> [-Description <String>] [-Unit <String>] [-Type <OTLPMetricType>]
  [-Temporality <OTLPAggregationTemporality>] [-IsMonotonic] [-Value <Double>] [-IntValue <Int64>]
- [-AsInt] [-Attribute <IDictionary>] [-ResourceAttributes <IDictionary>]
- [-TimestampUtc <DateTimeOffset>] [-StartTimestampUtc <DateTimeOffset>] [-PassThru]
+ [-AsInt] [-Attributes <IDictionary>] [-ResourceAttributes <IDictionary>]
+ [-AttributeMergeMode <OTLPAttributeMergeMode>] [-TimestampUtc <DateTimeOffset>]
+ [-StartTimestampUtc <DateTimeOffset>] [-PassThru]
  [<CommonParameters>]
 ```
 
@@ -45,9 +46,9 @@ $WriteOTLPMetricParameters = New-Object -TypeName 'System.Collections.Specialize
     $WriteOTLPMetricParameters.Temporality = [PSOTLP.Common.OTLPAggregationTemporality]::Cumulative
     $WriteOTLPMetricParameters.IsMonotonic = $False
     $WriteOTLPMetricParameters.Value = 1234.5
-    $WriteOTLPMetricParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $WriteOTLPMetricParameters.Attribute['driver.name'] = 'foo.inf'
-        $WriteOTLPMetricParameters.Attribute['phase'] = 'install'
+    $WriteOTLPMetricParameters.Attributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $WriteOTLPMetricParameters.Attributes['driver.name'] = 'foo.inf'
+        $WriteOTLPMetricParameters.Attributes['phase'] = 'install'
     $WriteOTLPMetricParameters.ResourceAttributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
         $WriteOTLPMetricParameters.ResourceAttributes['deployment.environment'] = 'production'
     $WriteOTLPMetricParameters.TimestampUtc = [DateTimeOffset]::UtcNow
@@ -199,13 +200,13 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Attribute
+### -Attributes
 `IDictionary` of metric attributes (`Hashtable`, `OrderedDictionary`, etc.).
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: Value
-Aliases:
+Aliases: Attribute
 
 Required: False
 Position: Named
@@ -226,6 +227,24 @@ Aliases: ResourceAttribute
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -AttributeMergeMode
+Overrides the connection's `AttributeMergeMode` for this metric only. When omitted, the
+connection-level mode (defaulting to `Merge`) is used. Accepted values: `Merge`, `Replace`,
+`Skip`. See `Connect-OTLP` for the full semantics.
+
+```yaml
+Type: PSOTLP.Common.OTLPAttributeMergeMode
+Parameter Sets: Value
+Aliases:
+Accepted values: Merge, Replace, Skip
+
+Required: False
+Position: Named
+Default value: Merge
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

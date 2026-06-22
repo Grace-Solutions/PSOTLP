@@ -18,6 +18,7 @@ namespace PSOTLP.Connections
         public OTLPEncoding Encoding { get; set; } = OTLPEncoding.Json;
         public OTLPCompression Compression { get; set; } = OTLPCompression.None;
         public OTLPAuthenticationMode AuthenticationMode { get; set; } = OTLPAuthenticationMode.None;
+        public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
 
         public string ServiceName { get; set; }
         public string ServiceNamespace { get; set; }

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
+using PSOTLP.Common;
 using PSOTLP.Models;
 using PSOTLP.Sessions;
 
@@ -15,7 +16,12 @@ namespace PSOTLP.Cmdlets
         [ValidateNotNullOrEmpty]
         public string Name { get; set; }
 
-        [Parameter] public IDictionary Attribute { get; set; }
+        [Parameter]
+        [Alias("Attribute")]
+        public IDictionary Attributes { get; set; }
+
+        [Parameter] public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
+
         [Parameter] public DateTimeOffset TimestampUtc { get; set; } = DateTimeOffset.UtcNow;
         [Parameter] public string SpanId { get; set; }
 
@@ -34,7 +40,8 @@ namespace PSOTLP.Cmdlets
                 {
                     Name = Name,
                     TimestampUtc = TimestampUtc,
-                    Attributes = HashtableToDictionary(Attribute)
+                    Attributes = HashtableToDictionary(Attributes),
+                    AttributeMergeMode = MyInvocation.BoundParameters.ContainsKey("AttributeMergeMode") ? AttributeMergeMode : (OTLPAttributeMergeMode?)null
                 };
                 if (span.Events == null) { span.Events = new List<OTLPSpanEvent>(); }
                 span.Events.Add(ev);

@@ -27,6 +27,7 @@ namespace PSOTLP.Connections
         public OTLPEncoding Encoding { get; set; }
         public OTLPCompression Compression { get; set; }
         public OTLPAuthenticationMode AuthenticationMode { get; set; }
+        public OTLPAttributeMergeMode AttributeMergeMode { get; set; }
 
         public string ServiceName { get; set; }
         public string ServiceNamespace { get; set; }
@@ -60,6 +61,7 @@ namespace PSOTLP.Connections
                 Encoding = connection.Encoding,
                 Compression = connection.Compression,
                 AuthenticationMode = connection.AuthenticationMode,
+                AttributeMergeMode = connection.AttributeMergeMode,
                 ServiceName = connection.ServiceName,
                 ServiceNamespace = connection.ServiceNamespace,
                 ServiceInstanceId = connection.ServiceInstanceId,

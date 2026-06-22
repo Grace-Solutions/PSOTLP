@@ -48,11 +48,15 @@ namespace PSOTLP.Cmdlets
         public SwitchParameter AsInt { get; set; }
 
         [Parameter(ParameterSetName = ValueParameterSet)]
-        public IDictionary Attribute { get; set; }
+        [Alias("Attribute")]
+        public IDictionary Attributes { get; set; }
 
         [Parameter(ParameterSetName = ValueParameterSet)]
         [Alias("ResourceAttribute")]
         public IDictionary ResourceAttributes { get; set; }
+
+        [Parameter(ParameterSetName = ValueParameterSet)]
+        public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
 
         [Parameter(ParameterSetName = ValueParameterSet)]
         public DateTimeOffset TimestampUtc { get; set; } = DateTimeOffset.UtcNow;
@@ -100,8 +104,9 @@ namespace PSOTLP.Cmdlets
                 UseIntValue = AsInt.IsPresent,
                 TimestampUtc = TimestampUtc,
                 StartTimestampUtc = StartTimestampUtc,
-                Attributes = HashtableToDictionary(Attribute),
-                ResourceAttributes = HashtableToDictionary(ResourceAttributes)
+                Attributes = HashtableToDictionary(Attributes),
+                ResourceAttributes = HashtableToDictionary(ResourceAttributes),
+                AttributeMergeMode = MyInvocation.BoundParameters.ContainsKey("AttributeMergeMode") ? AttributeMergeMode : (OTLPAttributeMergeMode?)null
             };
         }
 
