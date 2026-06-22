@@ -991,7 +991,7 @@ powershell.process.architecture
 Custom resource attributes must be supported:
 
 ```powershell
-Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'cloudinit' -ResourceAttribute @{ Customer = 'Personal'; Site = 'Lab' }
+Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'cloudinit' -ResourceAttributes @{ Customer = 'Personal'; Site = 'Lab' }
 ```
 
 ---
@@ -1280,8 +1280,8 @@ Connect-OTLP `
     [-ScopeVersion <string>] `
     [-ScopeAttributes <IDictionary>] `
     [-EnvironmentName <string>] `
-    [-ResourceAttribute <IDictionary>] `
-    [-LogAttribute <IDictionary>] `
+    [-ResourceAttributes <IDictionary>] `
+    [-LogAttributes <IDictionary>] `
     [-RedactPattern <Regex[]>] `
     [-Compression <None|Gzip>] `
     [-Encoding <Json|Protobuf|NDJson>] `
@@ -2201,8 +2201,8 @@ Write-OTLPLog `
     -Severity Information `
     -TraceId $TraceId `
     -SpanId $SpanId `
-    -ResourceAttribute @{ 'deployment.environment' = 'production'; 'device.manufacturer' = 'Dell Inc.' } `
-    -LogAttribute @{ 'process.pid' = $PID; 'error.code' = 0 }
+    -ResourceAttributes @{ 'deployment.environment' = 'production'; 'device.manufacturer' = 'Dell Inc.' } `
+    -LogAttributes @{ 'process.pid' = $PID; 'error.code' = 0 }
 ```
 
 Object-based advanced call:
@@ -2318,7 +2318,7 @@ Built-in defaults
 Environment-derived attributes
 Connection-level ResourceAttributes
 Session-level Attributes
-Cmdlet-level ResourceAttribute / LogAttribute / SpanAttribute
+Cmdlet-level ResourceAttributes / LogAttributes / SpanAttribute
 Cmdlet-level Attribute
 InputObject explicit attributes
 ```
@@ -2331,7 +2331,7 @@ Example:
 Built-in service.name = powershell
 Environment service.name = cloudinit
 Connect-OTLP -ServiceName device-bootstrap
-Write-OTLPLog -ResourceAttribute @{ 'service.name' = 'custom-event-service' }
+Write-OTLPLog -ResourceAttributes @{ 'service.name' = 'custom-event-service' }
 
 Final service.name = custom-event-service
 ```
@@ -2887,8 +2887,8 @@ Connect-OTLP `
     [-ScopeVersion <string>] `
     [-ScopeAttributes <IDictionary>] `
     [-EnvironmentName <string>] `
-    [-ResourceAttribute <IDictionary>] `
-    [-LogAttribute <IDictionary>] `
+    [-ResourceAttributes <IDictionary>] `
+    [-LogAttributes <IDictionary>] `
     [-Compression <None|Gzip>] `
     [-RetryCount <int>] `
     [-TimeoutSeconds <int>] `

@@ -2,13 +2,18 @@ using System;
 using System.Collections.Generic;
 using PSOTLP.Common;
 using PSOTLP.Connections;
+using PSOTLP.Endpoints;
+using PSOTLP.Http;
 
 namespace PSOTLP.Connections
 {
     /// <summary>
-    /// Sanitized projection of an <see cref="OTLPConnection"/> returned by Get-OTLPConnection
-    /// and Connect-OTLP -PassThru. Header values, tokens, and API keys are never included; only
-    /// the configured header names are exposed for diagnostics.
+    /// Sanitized projection of an <see cref="OTLPConnection"/> returned by Get-OTLPConnection,
+    /// Connect-OTLP -PassThru, and Disconnect-OTLP -PassThru. Header values, tokens, and API
+    /// keys are never included; only the configured header names are exposed for diagnostics.
+    /// The per-signal URI properties always reflect the URI exporters will actually use: an
+    /// explicit override (when supplied) or the base EndpointUri combined with the registered
+    /// signal path (/v1/logs, /v1/traces, /v1/metrics) honoring encoding and NoSignalPath.
     /// </summary>
     public sealed class OTLPConnectionView
     {
@@ -47,9 +52,9 @@ namespace PSOTLP.Connections
             var view = new OTLPConnectionView
             {
                 EndpointUri = connection.EndpointUri,
-                LogsEndpointUri = connection.LogsEndpointUri,
-                TracesEndpointUri = connection.TracesEndpointUri,
-                MetricsEndpointUri = connection.MetricsEndpointUri,
+                LogsEndpointUri = ResolveSignalUri(connection, OTLPEndpointRegistry.ExportLogsName, connection.LogsEndpointUri),
+                TracesEndpointUri = ResolveSignalUri(connection, OTLPEndpointRegistry.ExportTracesName, connection.TracesEndpointUri),
+                MetricsEndpointUri = ResolveSignalUri(connection, OTLPEndpointRegistry.ExportMetricsName, connection.MetricsEndpointUri),
                 NoSignalPath = connection.NoSignalPath,
                 Transport = connection.Transport,
                 Encoding = connection.Encoding,
@@ -74,6 +79,21 @@ namespace PSOTLP.Connections
                 foreach (var name in connection.Headers.Keys) { view.HeaderNames.Add(name); }
             }
             return view;
+        }
+
+        private static Uri ResolveSignalUri(OTLPConnection connection, string endpointName, Uri explicitOverride)
+        {
+            if (explicitOverride != null) { return explicitOverride; }
+            if (connection.EndpointUri == null) { return null; }
+            try
+            {
+                var definition = OTLPEndpointRegistry.Get(endpointName);
+                return OTLPUriBuilder.Build(connection.EndpointUri, definition, null, connection.Encoding, connection.NoSignalPath);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

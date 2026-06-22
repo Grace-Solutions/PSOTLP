@@ -15,7 +15,7 @@ Sends a single OTLP log record using the active connection.
 ### Body (Default)
 ```
 Write-OTLPLog [-Body] <String> [-Severity <OTLPSeverity>] [-Attribute <IDictionary>]
- [-ResourceAttribute <IDictionary>] [-LogAttribute <IDictionary>] [-EventName <String>]
+ [-ResourceAttributes <IDictionary>] [-LogAttributes <IDictionary>] [-EventName <String>]
  [-TimestampUtc <DateTimeOffset>] [-TraceId <String>] [-SpanId <String>] [-PassThru]
  [<CommonParameters>]
 ```
@@ -99,14 +99,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -ResourceAttribute
+### -ResourceAttributes
 `IDictionary` of resource-level attributes that override the connection's resource for this
 record only.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: Body
-Aliases:
+Aliases: ResourceAttribute
 
 Required: False
 Position: Named
@@ -115,14 +115,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -LogAttribute
+### -LogAttributes
 `IDictionary` of log-scope attributes that override the connection's log attributes for this
 record only.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: Body
-Aliases:
+Aliases: LogAttribute
 
 Required: False
 Position: Named

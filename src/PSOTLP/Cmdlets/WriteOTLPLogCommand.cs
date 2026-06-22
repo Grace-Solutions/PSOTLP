@@ -30,10 +30,12 @@ namespace PSOTLP.Cmdlets
         public IDictionary Attribute { get; set; }
 
         [Parameter(ParameterSetName = BodyParameterSet)]
-        public IDictionary ResourceAttribute { get; set; }
+        [Alias("ResourceAttribute")]
+        public IDictionary ResourceAttributes { get; set; }
 
         [Parameter(ParameterSetName = BodyParameterSet)]
-        public IDictionary LogAttribute { get; set; }
+        [Alias("LogAttribute")]
+        public IDictionary LogAttributes { get; set; }
 
         [Parameter(ParameterSetName = BodyParameterSet)]
         public string EventName { get; set; }
@@ -94,8 +96,8 @@ namespace PSOTLP.Cmdlets
                 TraceId = TraceId,
                 SpanId = SpanId,
                 Attributes = HashtableToDictionary(Attribute),
-                ResourceAttributes = HashtableToDictionary(ResourceAttribute),
-                LogAttributes = HashtableToDictionary(LogAttribute)
+                ResourceAttributes = HashtableToDictionary(ResourceAttributes),
+                LogAttributes = HashtableToDictionary(LogAttributes)
             };
         }
 

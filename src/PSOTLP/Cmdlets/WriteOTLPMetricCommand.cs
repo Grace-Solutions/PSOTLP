@@ -51,7 +51,8 @@ namespace PSOTLP.Cmdlets
         public IDictionary Attribute { get; set; }
 
         [Parameter(ParameterSetName = ValueParameterSet)]
-        public IDictionary ResourceAttribute { get; set; }
+        [Alias("ResourceAttribute")]
+        public IDictionary ResourceAttributes { get; set; }
 
         [Parameter(ParameterSetName = ValueParameterSet)]
         public DateTimeOffset TimestampUtc { get; set; } = DateTimeOffset.UtcNow;
@@ -100,7 +101,7 @@ namespace PSOTLP.Cmdlets
                 TimestampUtc = TimestampUtc,
                 StartTimestampUtc = StartTimestampUtc,
                 Attributes = HashtableToDictionary(Attribute),
-                ResourceAttributes = HashtableToDictionary(ResourceAttribute)
+                ResourceAttributes = HashtableToDictionary(ResourceAttributes)
             };
         }
 

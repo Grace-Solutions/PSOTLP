@@ -33,8 +33,8 @@ namespace PSOTLP.Cmdlets
         [Parameter] public string ScopeVersion { get; set; }
         [Parameter] public string EnvironmentName { get; set; }
 
-        [Parameter] public IDictionary ResourceAttribute { get; set; }
-        [Parameter] public IDictionary LogAttribute { get; set; }
+        [Parameter] [Alias("ResourceAttribute")] public IDictionary ResourceAttributes { get; set; }
+        [Parameter] [Alias("LogAttribute")] public IDictionary LogAttributes { get; set; }
         [Parameter] public IDictionary ScopeAttributes { get; set; }
 
         [Parameter] public Regex[] RedactPattern { get; set; }
@@ -65,8 +65,8 @@ namespace PSOTLP.Cmdlets
                     ScopeName = ScopeName,
                     ScopeVersion = ScopeVersion,
                     EnvironmentName = EnvironmentName,
-                    ResourceAttributes = HashtableToDictionary(ResourceAttribute),
-                    LogAttributes = HashtableToDictionary(LogAttribute),
+                    ResourceAttributes = HashtableToDictionary(ResourceAttributes),
+                    LogAttributes = HashtableToDictionary(LogAttributes),
                     ScopeAttributes = HashtableToDictionary(ScopeAttributes),
                     RedactPatterns = RedactPattern,
                     RetryCount = RetryCount,

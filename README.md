@@ -86,7 +86,7 @@ for ($i = 0; $i -lt $ScriptFiles.Count; $i++)
     Write-OTLPLog -Body "Attempting to run script $Counter of $($ScriptFiles.Count)" -Severity Information
     Write-OTLPLog -Body "Script path: $($ScriptFile.FullName)" -Severity Information
 
-    $SharedState = [hashtable]::Synchronized(@{})
+    $SharedState = [hashtable]::Synchronized((New-Object -TypeName 'System.Collections.Hashtable'))
         $SharedState.Success = $False
         $SharedState.ExitCode = $Null
         $SharedState.Error = $Null
@@ -107,6 +107,7 @@ for ($i = 0; $i -lt $ScriptFiles.Count; $i++)
                                                                 }
                                                             catch
                                                                 {
+                                                                    $SharedState.Success = $False
                                                                     $SharedState.Error = $_.Exception.Message
                                                                     throw
                                                                 }
@@ -182,16 +183,22 @@ Plain-string values in `-Headers` are accepted; PSOTLP converts them to
 session's command history or transcript.
 
 ```powershell
-Connect-OTLP `
-    -EndpointUri 'https://in-otel.hyperdx.io' `
-    -Headers @{ authorization = $Env:HYPERDX_API_KEY } `
-    -ServiceName 'my-script' `
-    -Compression Gzip
+$ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $ConnectOTLPParameters.EndpointUri = 'https://in-otel.hyperdx.io'
+    $ConnectOTLPParameters.Headers = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.Headers['authorization'] = $Env:HYPERDX_API_KEY
+    $ConnectOTLPParameters.ServiceName = 'my-script'
+    $ConnectOTLPParameters.Compression = [PSOTLP.Common.OTLPCompression]::Gzip
 
-Invoke-OTLPScript -ScriptBlock {
-    Write-Information 'Bootstrap started' -InformationAction Continue
-    Get-Service | Select-Object -First 5
-}
+Connect-OTLP @ConnectOTLPParameters
+
+$InvokeOTLPScriptParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $InvokeOTLPScriptParameters.ScriptBlock = {
+                                                    Write-Information 'Bootstrap started' -InformationAction Continue
+                                                    Get-Service | Select-Object -First 5
+                                              }
+
+Invoke-OTLPScript @InvokeOTLPScriptParameters
 
 Disconnect-OTLP
 ```
@@ -209,16 +216,22 @@ Rootprint requires `Content-Type: application/x-protobuf` at `/v1/logs` and
 rejects JSON with HTTP 415. Use `-Encoding Protobuf`:
 
 ```powershell
-Connect-OTLP `
-    -EndpointUri 'https://rootprint.example.com' `
-    -Headers @{ Authorization = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)" } `
-    -ServiceName 'my-script' `
-    -Encoding Protobuf `
-    -Compression Gzip
+$ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $ConnectOTLPParameters.EndpointUri = 'https://rootprint.example.com'
+    $ConnectOTLPParameters.Headers = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.Headers['Authorization'] = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)"
+    $ConnectOTLPParameters.ServiceName = 'my-script'
+    $ConnectOTLPParameters.Encoding = [PSOTLP.Common.OTLPEncoding]::Protobuf
+    $ConnectOTLPParameters.Compression = [PSOTLP.Common.OTLPCompression]::Gzip
 
-Invoke-OTLPScript -ScriptBlock {
-    Write-Information 'Bootstrap started' -InformationAction Continue
-}
+Connect-OTLP @ConnectOTLPParameters
+
+$InvokeOTLPScriptParameters = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $InvokeOTLPScriptParameters.ScriptBlock = {
+                                                    Write-Information 'Bootstrap started' -InformationAction Continue
+                                              }
+
+Invoke-OTLPScript @InvokeOTLPScriptParameters
 
 Disconnect-OTLP
 ```
@@ -231,9 +244,12 @@ single snake_case JSON document terminated by `\n`. NDJSON is logs-only and
 will throw on trace export.
 
 ```powershell
+$Headers = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $Headers['Authorization'] = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)"
+
 Connect-OTLP `
     -EndpointUri 'https://rootprint.example.com' `
-    -Headers @{ Authorization = "Bearer $($Env:ROOTPRINT_INGEST_TOKEN)" } `
+    -Headers $Headers `
     -ServiceName 'my-script' `
     -Encoding NDJson
 
@@ -264,11 +280,15 @@ with `Delta` or `Cumulative` aggregation temporality.
 Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'cloudbase-init'
 
 # Gauge (point-in-time value)
-Write-OTLPMetric -Name 'system.memory.usage' -Unit 'By' -Value 1.42e9 -Attribute @{ state = 'used' }
+$GaugeAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $GaugeAttribute['state'] = 'used'
+Write-OTLPMetric -Name 'system.memory.usage' -Unit 'By' -Value 1.42e9 -Attribute $GaugeAttribute
 
 # Monotonic cumulative counter
+$CounterAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+    $CounterAttribute['result'] = 'success'
 Write-OTLPMetric -Name 'driver.install.count' -Type Sum -Temporality Cumulative -IsMonotonic `
-    -IntValue 1 -AsInt -Attribute @{ result = 'success' }
+    -IntValue 1 -AsInt -Attribute $CounterAttribute
 
 # Batch
 $metrics = 1..5 | ForEach-Object {

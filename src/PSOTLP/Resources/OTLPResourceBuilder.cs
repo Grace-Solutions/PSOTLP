@@ -12,7 +12,7 @@ namespace PSOTLP.Resources
     ///   1. Built-in system inventory attributes (host/os/process/network).
     ///   2. Module identity attributes (service.name; service.namespace, service.instance.id and
     ///      deployment.environment only when explicitly configured on the connection).
-    ///   3. Connection-level resource attributes (Connect-OTLP -ResourceAttribute).
+    ///   3. Connection-level resource attributes (Connect-OTLP -ResourceAttributes).
     ///   4. Per-record resource attributes supplied by the cmdlet caller.
     /// </summary>
     public static class OTLPResourceBuilder
