@@ -19,6 +19,8 @@ Windows PowerShell 5.1 or PowerShell 7+.
 - Spans, span events, and trace batch export.
 - Pluggable wire encoding: `Json` (OTLP/HTTP), `Protobuf` (OTLP/HTTP), or
   `NDJson` (Rootprint `/api/ingest/ndjson`).
+- `-AttributeMergeMode` (`Merge`, `Replace`, `Skip`) on `Connect-OTLP` and
+  every record-emitting cmdlet for predictable attribute layering.
 - Single `build.ps1` drives build, package, release, and publish.
 
 ## Install
@@ -116,10 +118,10 @@ for ($i = 0; $i -lt $ScriptFiles.Count; $i++)
             $InvokeOTLPScriptParameters.ArgumentList = New-Object -TypeName 'System.Collections.Generic.List[System.Object]'
                 $InvokeOTLPScriptParameters.ArgumentList.Add($ScriptFile.FullName)
             $InvokeOTLPScriptParameters.SessionName = $ScriptFile.BaseName
-            $InvokeOTLPScriptParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-                $InvokeOTLPScriptParameters.Attribute['script.name'] = $ScriptFile.Name
-                $InvokeOTLPScriptParameters.Attribute['script.runner'] = 'maintenance-runner'
-                $InvokeOTLPScriptParameters.Attribute['script.index'] = $Counter
+            $InvokeOTLPScriptParameters.Attributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+                $InvokeOTLPScriptParameters.Attributes['script.name'] = $ScriptFile.Name
+                $InvokeOTLPScriptParameters.Attributes['script.runner'] = 'maintenance-runner'
+                $InvokeOTLPScriptParameters.Attributes['script.index'] = $Counter
             $InvokeOTLPScriptParameters.SharedState = $SharedState
             $InvokeOTLPScriptParameters.BatchSize = 100
             $InvokeOTLPScriptParameters.PassThru = $True
@@ -282,13 +284,13 @@ Connect-OTLP -EndpointUri 'https://otel.example.com' -ServiceName 'cloudbase-ini
 # Gauge (point-in-time value)
 $GaugeAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     $GaugeAttribute['state'] = 'used'
-Write-OTLPMetric -Name 'system.memory.usage' -Unit 'By' -Value 1.42e9 -Attribute $GaugeAttribute
+Write-OTLPMetric -Name 'system.memory.usage' -Unit 'By' -Value 1.42e9 -Attributes $GaugeAttribute
 
 # Monotonic cumulative counter
 $CounterAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     $CounterAttribute['result'] = 'success'
 Write-OTLPMetric -Name 'driver.install.count' -Type Sum -Temporality Cumulative -IsMonotonic `
-    -IntValue 1 -AsInt -Attribute $CounterAttribute
+    -IntValue 1 -AsInt -Attributes $CounterAttribute
 
 # Batch
 $metrics = 1..5 | ForEach-Object {

@@ -25,6 +25,7 @@ namespace PSOTLP.Cmdlets
         [Parameter] public OTLPTransport Transport { get; set; } = OTLPTransport.Http;
         [Parameter] public OTLPEncoding Encoding { get; set; } = OTLPEncoding.Json;
         [Parameter] public OTLPCompression Compression { get; set; } = OTLPCompression.None;
+        [Parameter] public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
 
         [Parameter] public string ServiceName { get; set; }
         [Parameter] public string ServiceNamespace { get; set; }
@@ -59,6 +60,7 @@ namespace PSOTLP.Cmdlets
                     Transport = Transport,
                     Encoding = Encoding,
                     Compression = Compression,
+                    AttributeMergeMode = AttributeMergeMode,
                     ServiceName = OTLPAttributeConverter.NormalizeMissing(ResolveServiceName()),
                     ServiceNamespace = ResolveServiceNamespace(),
                     ServiceInstanceId = ResolveServiceInstanceId(),

@@ -15,6 +15,7 @@ namespace PSOTLP.Models
         public string Name { get; set; }
         public DateTimeOffset TimestampUtc { get; set; } = DateTimeOffset.UtcNow;
         public IDictionary<string, object> Attributes { get; set; }
+        public OTLPAttributeMergeMode? AttributeMergeMode { get; set; }
     }
 
     public sealed class OTLPSpan
@@ -27,7 +28,9 @@ namespace PSOTLP.Models
         public DateTimeOffset StartTimeUtc { get; set; } = DateTimeOffset.UtcNow;
         public DateTimeOffset? EndTimeUtc { get; set; }
         public IDictionary<string, object> Attributes { get; set; }
+        public IDictionary<string, object> ResourceAttributes { get; set; }
         public IList<OTLPSpanEvent> Events { get; set; } = new List<OTLPSpanEvent>();
         public OTLPStatus Status { get; set; } = new OTLPStatus();
+        public OTLPAttributeMergeMode? AttributeMergeMode { get; set; }
     }
 }

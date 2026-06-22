@@ -34,7 +34,13 @@ namespace PSOTLP.Cmdlets
         [Parameter] public object[] ArgumentList { get; set; }
         [Parameter] public string SessionName { get; set; }
         [Parameter] public string ServiceName { get; set; }
-        [Parameter] public IDictionary Attribute { get; set; }
+
+        [Parameter]
+        [Alias("Attribute")]
+        public IDictionary Attributes { get; set; }
+
+        [Parameter] public OTLPAttributeMergeMode AttributeMergeMode { get; set; } = OTLPAttributeMergeMode.Merge;
+
         [Parameter] [ValidateRange(1, 10000)] public int BatchSize { get; set; } = 100;
         [Parameter] public SwitchParameter ImportFunctions { get; set; }
         [Parameter] public SwitchParameter ImportVariables { get; set; }
@@ -57,10 +63,16 @@ namespace PSOTLP.Cmdlets
 
                 var queue = new OTLPSessionQueue(100000, OTLPSessionDropPolicy.DropOldest);
                 var redaction = new OTLPRedactionEngine(connection.RedactPatterns);
-                var attributes = HashtableToDictionary(Attribute);
+                var attributes = HashtableToDictionary(Attributes);
+                var modeOverride = MyInvocation.BoundParameters.ContainsKey("AttributeMergeMode") ? AttributeMergeMode : (OTLPAttributeMergeMode?)null;
+
+                if (MyInvocation.BoundParameters.ContainsKey("ArgumentList") && ArgumentList != null)
+                {
+                    WriteVerboseLine("Invoke-OTLPScript received " + ArgumentList.Length + " script argument(s).");
+                }
 
                 WriteVerboseLine("Invoking OTLP-captured script (sessionId=" + session.SessionId + "). Please Wait...");
-                var output = ExecuteScript(session, queue, redaction, attributes);
+                var output = ExecuteScript(session, queue, redaction, attributes, modeOverride);
                 FlushQueue(connection, queue, session);
 
                 if (PassThru.IsPresent && output != null)
@@ -76,7 +88,7 @@ namespace PSOTLP.Cmdlets
             }
         }
 
-        private System.Collections.ObjectModel.Collection<PSObject> ExecuteScript(OTLPSession session, OTLPSessionQueue queue, OTLPRedactionEngine redaction, IDictionary<string, object> attributes)
+        private System.Collections.ObjectModel.Collection<PSObject> ExecuteScript(OTLPSession session, OTLPSessionQueue queue, OTLPRedactionEngine redaction, IDictionary<string, object> attributes, OTLPAttributeMergeMode? modeOverride)
         {
             var iss = BuildInitialSessionState();
             using (var runspace = RunspaceFactory.CreateRunspace(iss))
@@ -85,7 +97,7 @@ namespace PSOTLP.Cmdlets
                 using (var ps = PowerShell.Create())
                 {
                     ps.Runspace = runspace;
-                    var streamHook = new OTLPStreamHook(queue, redaction, session, attributes);
+                    var streamHook = new OTLPStreamHook(queue, redaction, session, attributes, modeOverride);
                     streamHook.Attach(ps);
 
                     ps.AddScript(ScriptBlock.ToString());
@@ -126,21 +138,24 @@ namespace PSOTLP.Cmdlets
         private void CopyFunctionsFromCaller(InitialSessionState iss)
         {
             var results = InvokeCommand.InvokeScript("Get-ChildItem -Path function: -ErrorAction SilentlyContinue");
-            if (results == null) { return; }
+            if (results == null) { WriteVerboseLine("Invoke-OTLPScript imported 0 caller function(s)."); return; }
+            var imported = 0;
             foreach (var psObject in results)
             {
                 if (psObject == null) { continue; }
                 var fn = psObject.BaseObject as FunctionInfo;
                 if (fn == null || string.IsNullOrEmpty(fn.Name) || string.IsNullOrEmpty(fn.Definition)) { continue; }
-                try { iss.Commands.Add(new SessionStateFunctionEntry(fn.Name, fn.Definition)); }
+                try { iss.Commands.Add(new SessionStateFunctionEntry(fn.Name, fn.Definition)); imported++; }
                 catch (Exception ex) { WriteWarningLine("Skipped function '" + fn.Name + "': " + ex.Message); }
             }
+            WriteVerboseLine("Invoke-OTLPScript imported " + imported + " caller function(s).");
         }
 
         private void CopyVariablesFromCaller(InitialSessionState iss)
         {
             var results = InvokeCommand.InvokeScript("Get-Variable -ErrorAction SilentlyContinue");
-            if (results == null) { return; }
+            if (results == null) { WriteVerboseLine("Invoke-OTLPScript imported 0 caller variable(s)."); return; }
+            var imported = 0;
             foreach (var psObject in results)
             {
                 if (psObject == null) { continue; }
@@ -148,9 +163,10 @@ namespace PSOTLP.Cmdlets
                 if (variable == null || string.IsNullOrEmpty(variable.Name)) { continue; }
                 if (AutomaticVariableNames.Contains(variable.Name)) { continue; }
                 if (SharedState != null && string.Equals(variable.Name, SharedStateVariableName, StringComparison.OrdinalIgnoreCase)) { continue; }
-                try { iss.Variables.Add(new SessionStateVariableEntry(variable.Name, variable.Value, variable.Description)); }
+                try { iss.Variables.Add(new SessionStateVariableEntry(variable.Name, variable.Value, variable.Description)); imported++; }
                 catch (Exception ex) { WriteWarningLine("Skipped variable '" + variable.Name + "': " + ex.Message); }
             }
+            WriteVerboseLine("Invoke-OTLPScript imported " + imported + " caller variable(s).");
         }
 
         private static readonly HashSet<string> AutomaticVariableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

@@ -22,5 +22,6 @@ namespace PSOTLP.Models
         public IDictionary<string, object> Attributes { get; set; }
         public IDictionary<string, object> ResourceAttributes { get; set; }
         public IDictionary<string, object> LogAttributes { get; set; }
+        public OTLPAttributeMergeMode? AttributeMergeMode { get; set; }
     }
 }

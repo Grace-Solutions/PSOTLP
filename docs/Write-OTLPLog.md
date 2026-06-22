@@ -14,8 +14,9 @@ Sends a single OTLP log record using the active connection.
 
 ### Body (Default)
 ```
-Write-OTLPLog [-Body] <String> [-Severity <OTLPSeverity>] [-Attribute <IDictionary>]
- [-ResourceAttributes <IDictionary>] [-LogAttributes <IDictionary>] [-EventName <String>]
+Write-OTLPLog [-Body] <String> [-Severity <OTLPSeverity>] [-Attributes <IDictionary>]
+ [-ResourceAttributes <IDictionary>] [-LogAttributes <IDictionary>]
+ [-AttributeMergeMode <OTLPAttributeMergeMode>] [-EventName <String>]
  [-TimestampUtc <DateTimeOffset>] [-TraceId <String>] [-SpanId <String>] [-PassThru]
  [<CommonParameters>]
 ```
@@ -39,9 +40,9 @@ $WriteOTLPLogParameters = New-Object -TypeName 'System.Collections.Specialized.O
     $WriteOTLPLogParameters.Body = 'Driver installation completed'
     $WriteOTLPLogParameters.Severity = [PSOTLP.Common.OTLPSeverity]::Information
     $WriteOTLPLogParameters.EventName = 'driver.install.completed'
-    $WriteOTLPLogParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $WriteOTLPLogParameters.Attribute['driver.name'] = 'foo.inf'
-        $WriteOTLPLogParameters.Attribute['phase'] = 'PostExecution'
+    $WriteOTLPLogParameters.Attributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $WriteOTLPLogParameters.Attributes['driver.name'] = 'foo.inf'
+        $WriteOTLPLogParameters.Attributes['phase'] = 'PostExecution'
     $WriteOTLPLogParameters.TimestampUtc = [DateTimeOffset]::UtcNow
     $WriteOTLPLogParameters.PassThru = $True
     $WriteOTLPLogParameters.Verbose = $True
@@ -84,13 +85,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Attribute
-`IDictionary` of record attributes (`Hashtable`, `OrderedDictionary`, etc.).
+### -Attributes
+`IDictionary` of record attributes (`Hashtable`, `OrderedDictionary`, etc.). Merged with
+`-LogAttributes` and the connection-level defaults; later layers win on key collisions.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: Body
-Aliases:
+Aliases: Attribute
 
 Required: False
 Position: Named
@@ -127,6 +129,24 @@ Aliases: LogAttribute
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -AttributeMergeMode
+Overrides the connection's `AttributeMergeMode` for this record only. When omitted, the
+connection-level mode (defaulting to `Merge`) is used. Accepted values: `Merge`, `Replace`,
+`Skip`. See `Connect-OTLP` for the full semantics.
+
+```yaml
+Type: PSOTLP.Common.OTLPAttributeMergeMode
+Parameter Sets: Body
+Aliases:
+Accepted values: Merge, Replace, Skip
+
+Required: False
+Position: Named
+Default value: Merge
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

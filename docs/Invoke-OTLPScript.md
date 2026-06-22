@@ -15,7 +15,8 @@ log records.
 
 ```
 Invoke-OTLPScript [-ScriptBlock] <ScriptBlock> [-ArgumentList <Object[]>] [-SessionName <String>]
- [-ServiceName <String>] [-Attribute <IDictionary>] [-BatchSize <Int32>] [-ImportFunctions]
+ [-ServiceName <String>] [-Attributes <IDictionary>]
+ [-AttributeMergeMode <OTLPAttributeMergeMode>] [-BatchSize <Int32>] [-ImportFunctions]
  [-ImportVariables] [-SharedState <IDictionary>] [-PassThru] [<CommonParameters>]
 ```
 
@@ -29,6 +30,10 @@ Caller-scope functions and variables can be copied into the child runspace via
 `-ImportFunctions` and `-ImportVariables`. A `-SharedState` dictionary (typically a
 `[hashtable]::Synchronized(@{})`) is injected as `$SharedState` in the child runspace so the
 parent and child can exchange data by reference without re-serialization.
+
+When `-Verbose` is on, one count message is written for each of `-ArgumentList`,
+`-ImportFunctions`, and `-ImportVariables` (only when those parameters are supplied), so the
+caller can confirm what crossed the runspace boundary without exposing argument values.
 
 ## EXAMPLES
 
@@ -47,9 +52,9 @@ $InvokeOTLPScriptParameters = New-Object -TypeName 'System.Collections.Specializ
     }
     $InvokeOTLPScriptParameters.ArgumentList = ,'hello'
     $InvokeOTLPScriptParameters.SessionName = 'demo'
-    $InvokeOTLPScriptParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $InvokeOTLPScriptParameters.Attribute['component'] = 'demo'
-        $InvokeOTLPScriptParameters.Attribute['phase'] = 'PreExecution'
+    $InvokeOTLPScriptParameters.Attributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $InvokeOTLPScriptParameters.Attributes['component'] = 'demo'
+        $InvokeOTLPScriptParameters.Attributes['phase'] = 'PreExecution'
     $InvokeOTLPScriptParameters.BatchSize = 100
     $InvokeOTLPScriptParameters.ImportFunctions = $True
     $InvokeOTLPScriptParameters.ImportVariables = $True
@@ -128,18 +133,36 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Attribute
+### -Attributes
 `IDictionary` of attributes attached to every captured log record (`Hashtable`,
-`OrderedDictionary`, etc.).
+`OrderedDictionary`, etc.). Merged with (not replacing) module/connection defaults.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: (All)
-Aliases:
+Aliases: Attribute
 
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -AttributeMergeMode
+Overrides the connection's `AttributeMergeMode` for every record captured during this
+invocation. When omitted, the connection-level mode (defaulting to `Merge`) is used. Accepted
+values: `Merge`, `Replace`, `Skip`. See `Connect-OTLP` for the full semantics.
+
+```yaml
+Type: PSOTLP.Common.OTLPAttributeMergeMode
+Parameter Sets: (All)
+Aliases:
+Accepted values: Merge, Replace, Skip
+
+Required: False
+Position: Named
+Default value: Merge
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

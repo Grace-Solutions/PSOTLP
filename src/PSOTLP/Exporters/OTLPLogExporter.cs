@@ -123,10 +123,12 @@ namespace PSOTLP.Exporters
             var severityText = !string.IsNullOrWhiteSpace(record.SeverityText) ? record.SeverityText : OTLPSeverityMapper.ToText(record.Severity);
             var bodyText = _redaction != null ? _redaction.Redact(record.Body) : record.Body;
 
-            var attributes = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            if (connection != null && connection.LogAttributes != null) { foreach (var pair in connection.LogAttributes) { attributes[pair.Key] = pair.Value; } }
-            if (record.LogAttributes != null) { foreach (var pair in record.LogAttributes) { attributes[pair.Key] = pair.Value; } }
-            if (record.Attributes != null) { foreach (var pair in record.Attributes) { attributes[pair.Key] = pair.Value; } }
+            var mode = OTLPResourceBuilder.ResolveMode(connection, record.AttributeMergeMode);
+            var overrides = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            if (record.LogAttributes != null) { foreach (var pair in record.LogAttributes) { overrides[pair.Key] = pair.Value; } }
+            if (record.Attributes != null) { foreach (var pair in record.Attributes) { overrides[pair.Key] = pair.Value; } }
+            var baseline = connection != null ? connection.LogAttributes : null;
+            var attributes = OTLPAttributeMerger.Apply(baseline, overrides, mode);
 
             return new OTLPLogRecordPayload
             {

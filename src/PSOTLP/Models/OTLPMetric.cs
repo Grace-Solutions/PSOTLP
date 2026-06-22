@@ -25,5 +25,6 @@ namespace PSOTLP.Models
         public bool UseIntValue { get; set; }
         public IDictionary<string, object> Attributes { get; set; }
         public IDictionary<string, object> ResourceAttributes { get; set; }
+        public OTLPAttributeMergeMode? AttributeMergeMode { get; set; }
     }
 }
