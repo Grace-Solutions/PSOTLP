@@ -15,6 +15,8 @@ namespace PSOTLP.Resources
     /// rule holds. Network attributes are emitted per active non-loopback adapter as
     /// host.network.{i}.interface, host.network.{i}.mac, host.network.{i}.ipv4, and
     /// host.network.{i}.ipv6, with the default-route adapter (if any) placed at index 0.
+    /// When an adapter has multiple IPv4 or IPv6 addresses, only the first is emitted so
+    /// the wire value stays a plain OTLP string.
     /// </summary>
     public sealed class OTLPSystemInformationProvider
     {
@@ -44,6 +46,7 @@ namespace PSOTLP.Resources
                 attributes["process.id"] = OTLPAttributeConverter.MissingValue;
                 attributes["process.name"] = OTLPAttributeConverter.MissingValue;
             }
+            attributes["process.thread.id"] = System.Threading.Thread.CurrentThread.ManagedThreadId;
             attributes["process.user"] = OTLPAttributeConverter.NormalizeMissing(TryGet(GetProcessUser));
             return attributes;
         }
@@ -99,8 +102,8 @@ namespace PSOTLP.Resources
                                 else if (addr.Address.AddressFamily == AddressFamily.InterNetworkV6) { ipv6.Add(addr.Address.ToString()); }
                             }
                         }
-                        if (ipv4.Count > 0) { attributes[prefix + "ipv4"] = ipv4.ToArray(); }
-                        if (ipv6.Count > 0) { attributes[prefix + "ipv6"] = ipv6.ToArray(); }
+                        if (ipv4.Count > 0) { attributes[prefix + "ipv4"] = ipv4[0]; }
+                        if (ipv6.Count > 0) { attributes[prefix + "ipv6"] = ipv6[0]; }
                     }
                 }
                 catch { }

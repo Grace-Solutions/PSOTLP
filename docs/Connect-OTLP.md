@@ -18,7 +18,7 @@ Connect-OTLP [-EndpointUri <Uri>] [-LogsEndpointUri <Uri>] [-TracesEndpointUri <
  [-Encoding <OTLPEncoding>] [-Compression <OTLPCompression>] [-ServiceName <String>]
  [-ServiceNamespace <String>] [-ServiceInstanceId <String>] [-ScopeName <String>]
  [-ScopeVersion <String>] [-ScopeAttributes <IDictionary>] [-EnvironmentName <String>]
- [-ResourceAttribute <IDictionary>] [-LogAttribute <IDictionary>]
+ [-ResourceAttributes <IDictionary>] [-LogAttributes <IDictionary>]
  [-RedactPattern <Regex[]>] [-RetryCount <Int32>] [-TimeoutSeconds <Int32>] [-PassThru]
  [<CommonParameters>]
 ```
@@ -57,9 +57,9 @@ $ConnectOTLPParameters = New-Object -TypeName 'System.Collections.Specialized.Or
     $ConnectOTLPParameters.Transport = [PSOTLP.Common.OTLPTransport]::Http
     $ConnectOTLPParameters.Encoding = [PSOTLP.Common.OTLPEncoding]::Json
     $ConnectOTLPParameters.Compression = [PSOTLP.Common.OTLPCompression]::Gzip
-    $ConnectOTLPParameters.ResourceAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $ConnectOTLPParameters.ResourceAttribute['deployment.environment'] = 'production'
-        $ConnectOTLPParameters.ResourceAttribute['team'] = 'observability'
+    $ConnectOTLPParameters.ResourceAttributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $ConnectOTLPParameters.ResourceAttributes['deployment.environment'] = 'production'
+        $ConnectOTLPParameters.ResourceAttributes['team'] = 'observability'
     $ConnectOTLPParameters.RedactPattern = New-Object -TypeName 'System.Collections.Generic.List[System.Text.RegularExpressions.Regex]'
         $ConnectOTLPParameters.RedactPattern.Add([regex]'(?i)x-internal-secret\s*=\s*\S+')
     $ConnectOTLPParameters.RetryCount = 3
@@ -345,13 +345,13 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -ResourceAttribute
+### -ResourceAttributes
 `IDictionary` of additional resource attributes that ship on every emitted record.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: (All)
-Aliases:
+Aliases: ResourceAttribute
 
 Required: False
 Position: Named
@@ -360,13 +360,13 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -LogAttribute
+### -LogAttributes
 `IDictionary` of default log-scope attributes that ship on every emitted log record.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: (All)
-Aliases:
+Aliases: LogAttribute
 
 Required: False
 Position: Named

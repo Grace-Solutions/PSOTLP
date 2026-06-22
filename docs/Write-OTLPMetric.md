@@ -16,7 +16,7 @@ Sends a single OTLP metric record using the active connection.
 ```
 Write-OTLPMetric [-Name] <String> [-Description <String>] [-Unit <String>] [-Type <OTLPMetricType>]
  [-Temporality <OTLPAggregationTemporality>] [-IsMonotonic] [-Value <Double>] [-IntValue <Int64>]
- [-AsInt] [-Attribute <IDictionary>] [-ResourceAttribute <IDictionary>]
+ [-AsInt] [-Attribute <IDictionary>] [-ResourceAttributes <IDictionary>]
  [-TimestampUtc <DateTimeOffset>] [-StartTimestampUtc <DateTimeOffset>] [-PassThru]
  [<CommonParameters>]
 ```
@@ -48,8 +48,8 @@ $WriteOTLPMetricParameters = New-Object -TypeName 'System.Collections.Specialize
     $WriteOTLPMetricParameters.Attribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
         $WriteOTLPMetricParameters.Attribute['driver.name'] = 'foo.inf'
         $WriteOTLPMetricParameters.Attribute['phase'] = 'install'
-    $WriteOTLPMetricParameters.ResourceAttribute = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
-        $WriteOTLPMetricParameters.ResourceAttribute['deployment.environment'] = 'production'
+    $WriteOTLPMetricParameters.ResourceAttributes = New-Object -TypeName 'System.Collections.Specialized.OrderedDictionary' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
+        $WriteOTLPMetricParameters.ResourceAttributes['deployment.environment'] = 'production'
     $WriteOTLPMetricParameters.TimestampUtc = [DateTimeOffset]::UtcNow
     $WriteOTLPMetricParameters.StartTimestampUtc = [DateTimeOffset]::UtcNow
     $WriteOTLPMetricParameters.PassThru = $True
@@ -214,14 +214,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -ResourceAttribute
+### -ResourceAttributes
 `IDictionary` of resource-level attributes that override the connection's resource for this
 metric only.
 
 ```yaml
 Type: System.Collections.IDictionary
 Parameter Sets: Value
-Aliases:
+Aliases: ResourceAttribute
 
 Required: False
 Position: Named
